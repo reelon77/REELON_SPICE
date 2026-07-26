@@ -1,0 +1,21 @@
+# 个人工作台账，不进仓库
+项目梳理与开发计划.md
+
+# 会话交接文档，不进仓库
+会话交接/
+
+# 个人讲义笔记，不进仓库
+docs/
+
+# 构建产物
+build/
+
+# 工具缓存
+.cache/
+.claude/
+compile_commands.json
+
+# 编辑器 / 系统
+.DS_Store
+.vscode/
+.idea/
