@@ -8,11 +8,13 @@ public:
     Matrix(int i, int j);
     // 运算符重载，读写
     double& operator()(int i, int j);
-    std::vector<double> getRow(int i) const;
-    std::vector<double> getCol(int i) const;
+    double operator()(int i, int j) const;
+
+    int rows() const;
+    int cols() const;
 
 private:
-    int rows = 0;
-    int cols = 0;
-    std::vector<double> matrix;
+    int rows_ = 0;
+    int cols_ = 0;
+    std::vector<double> matrix_;
 };

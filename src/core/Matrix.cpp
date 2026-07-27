@@ -1,23 +1,19 @@
 #include "Matrix.h"
 
-Matrix::Matrix(int i, int j) : rows(i), cols(j), matrix(i * j) {}
+Matrix::Matrix(int i, int j) : rows_(i), cols_(j), matrix_(i * j) {}
 
 double& Matrix::operator()(int i, int j) {
-    return matrix[i * cols + j];
+    return matrix_[i * cols_ + j];
 }
 
-std::vector<double> Matrix::getRow(int i) const {
-    std::vector<double> row(cols);
-    for (int j = 0; j < cols; ++j) {
-        row[j] = (this->matrix)[i * cols + j];
-    }
-    return row;
+double Matrix::operator()(int i, int j) const {
+    return matrix_[i * cols_ + j];
 }
 
-std::vector<double> Matrix::getCol(int i) const {
-    std::vector<double> col(rows);
-    for (int j = 0; j < rows; ++j) {
-        col[j] = (this->matrix)[j * cols + i];
-    }
-    return col;
+int Matrix::rows() const {
+    return rows_;
+}
+
+int Matrix::cols() const {
+    return cols_;
 }
