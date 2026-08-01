@@ -175,3 +175,266 @@ TEST_F(LUTest, ExchangeRowsRejectsBadIndex) {
     Matrix A(2, 2);
     EXPECT_THROW(exchange_rows(A, 0, 5), std::out_of_range);
 }
+
+// ============================================================
+// lu_decomposition：带部分选主元的正式版
+// ============================================================
+
+class PivotLUTest : public LUTest {
+protected:
+    // 比 expect_rows_are_permutation_of 更严：perm 必须精确对得上，
+    // 即 (L·U) 的第 i 行 == A 的第 perm[i] 行
+    static void expect_LU_equals_PA(const LUResult& r, const Matrix& A) {
+        Matrix LU = multiply(r.L, r.U);
+        int n = A.rows();
+        ASSERT_EQ(static_cast<int>(r.perm.size()), n);
+        for (int i = 0; i < n; ++i) {
+            ASSERT_GE(r.perm[i], 0);
+            ASSERT_LT(r.perm[i], n);
+            for (int j = 0; j < n; ++j) {
+                EXPECT_NEAR(LU(i, j), A(r.perm[i], j), kTol)
+                    << "(L*U)(" << i << "," << j << ") 应等于 A(" << r.perm[i] << "," << j << ")";
+            }
+        }
+    }
+
+    // 部分选主元的标志性性质：所有乘数 |L(i,j)| ≤ 1
+    static void expect_multipliers_bounded(const Matrix& L) {
+        for (int i = 0; i < L.rows(); ++i) {
+            for (int j = 0; j < i; ++j) {
+                EXPECT_LE(std::abs(L(i, j)), 1.0 + kTol)
+                    << "L(" << i << "," << j << ") = " << L(i, j) << " 超过 1，选主元没生效";
+            }
+        }
+    }
+};
+
+TEST_F(PivotLUTest, WellConditionedReconstructsPA) {
+    Matrix A = make(3, {2, 1, 1,
+                        4, 3, 3,
+                        8, 7, 9});
+    Matrix L(3, 3), U(3, 3);
+    LUResult r = lu_decomposition(A, L, U);
+
+    expect_unit_lower_triangular(r.L);
+    expect_upper_triangular(r.U);
+    expect_LU_equals_PA(r, A);
+    expect_multipliers_bounded(r.L);
+}
+
+// naked 版在这里会产生 inf/nan：主元消元后才变 0
+TEST_F(PivotLUTest, PivotBecomesZeroMidway) {
+    Matrix A = make(3, {1, 1, 0,
+                        1, 1, 1,
+                        0, 1, 1});
+    Matrix L(3, 3), U(3, 3);
+    LUResult r = lu_decomposition(A, L, U);
+
+    expect_all_finite(r.L);
+    expect_all_finite(r.U);
+    expect_LU_equals_PA(r, A);
+}
+
+TEST_F(PivotLUTest, NeedsRowSwapAtStart) {
+    Matrix A = make(3, {0, 1, 2,
+                        1, 2, 3,
+                        3, 1, 1});
+    Matrix L(3, 3), U(3, 3);
+    LUResult r = lu_decomposition(A, L, U);
+
+    expect_all_finite(r.L);
+    expect_all_finite(r.U);
+    expect_LU_equals_PA(r, A);
+    EXPECT_EQ(r.perm[0], 2) << "首列 |3| 最大，应选第 2 行，而不是第一个非零的第 1 行";
+}
+
+// 选的是绝对值最大，不是第一个非零 —— 这正是与 naked 版的分水岭
+TEST_F(PivotLUTest, PicksLargestMagnitudeNotFirstNonzero) {
+    Matrix A = make(2, {1, 2,
+                        100, 3});
+    Matrix L(2, 2), U(2, 2);
+    LUResult r = lu_decomposition(A, L, U);
+
+    EXPECT_EQ(r.perm[0], 1);
+    EXPECT_NEAR(r.U(0, 0), 100.0, kTol);
+    EXPECT_NEAR(r.L(1, 0), 0.01, kTol); // 1/100，而非 100/1
+    expect_multipliers_bounded(r.L);
+    expect_LU_equals_PA(r, A);
+}
+
+TEST_F(PivotLUTest, SingularMatrixThrows) {
+    Matrix A = make(2, {1, 2,
+                        2, 4});
+    Matrix L(2, 2), U(2, 2);
+    EXPECT_THROW(lu_decomposition(A, L, U), std::runtime_error);
+}
+
+// 未接地电路：G 是带权图拉普拉斯，行和为 0 ⇒ 奇异 ⇒ 必须报错而不是给 inf
+TEST_F(PivotLUTest, UngroundedLaplacianThrows) {
+    Matrix G = make(2, {0.001, -0.001,
+                        -0.001, 0.001});
+    Matrix L(2, 2), U(2, 2);
+    EXPECT_THROW(lu_decomposition(G, L, U), std::runtime_error);
+}
+
+// 对照：节点 2 经 R2 接地后，行和不再为 0，G 非奇异，正常分解
+TEST_F(PivotLUTest, GroundedGMatrixIsNonsingular) {
+    Matrix G = make(2, {0.001, -0.001,
+                        -0.001, 0.0015});
+    Matrix L(2, 2), U(2, 2);
+    LUResult r = lu_decomposition(G, L, U);
+
+    expect_all_finite(r.L);
+    expect_all_finite(r.U);
+    expect_LU_equals_PA(r, G);
+}
+
+TEST_F(PivotLUTest, NonSquareThrows) {
+    Matrix A(2, 3);
+    Matrix L(2, 2), U(2, 2);
+    EXPECT_THROW(lu_decomposition(A, L, U), std::invalid_argument);
+}
+
+TEST_F(PivotLUTest, MismatchedLUSizeThrows) {
+    Matrix A(3, 3);
+    Matrix L(2, 2), U(2, 2);
+    EXPECT_THROW(lu_decomposition(A, L, U), std::invalid_argument);
+}
+
+// 不依赖调用方传全零的 L/U：脏矩阵也要被覆盖干净
+TEST_F(PivotLUTest, OverwritesDirtyOutputMatrices) {
+    Matrix A = make(2, {2, 1,
+                        1, 3});
+    Matrix L(2, 2), U(2, 2);
+    L(0, 1) = 99.0;
+    U(1, 0) = 99.0;
+    LUResult r = lu_decomposition(A, L, U);
+
+    expect_unit_lower_triangular(r.L);
+    expect_upper_triangular(r.U);
+    expect_LU_equals_PA(r, A);
+}
+
+// ============================================================
+// lu_solve：前代 + 回代
+// ============================================================
+
+class SolveTest : public LUTest {
+protected:
+    static std::vector<double> mul(const Matrix& A, const std::vector<double>& x) {
+        std::vector<double> r(A.rows(), 0.0);
+        for (int i = 0; i < A.rows(); ++i) {
+            for (int j = 0; j < A.cols(); ++j) {
+                r[i] += A(i, j) * x[j];
+            }
+        }
+        return r;
+    }
+
+    // 每个用例查两条**互相独立**的判据：
+    //   1. 与手推答案比对   —— 验"答案对不对"
+    //   2. 残差 |A·x − b|   —— 验"方程解没解对"
+    // 两者的失败指向完全不同的地方：只有 1 红而 2 绿，说明是手推答案抄错了，
+    // 不是求解器坏了。（本项目已经两次栽在错误的手推答案上，故必须双判据。）
+    static void expect_solves(const Matrix& A,
+                              const std::vector<double>& b,
+                              const std::vector<double>& expect) {
+        const int n = A.rows();
+        Matrix L(n, n), U(n, n);
+        LUResult r = lu_decomposition(A, L, U);
+        std::vector<double> x = lu_solve(r, b);
+
+        ASSERT_EQ(x.size(), expect.size());
+        for (int i = 0; i < n; ++i) {
+            EXPECT_NEAR(x[i], expect[i], kTol) << "x[" << i << "] 与手推答案不符";
+        }
+
+        std::vector<double> Ax = mul(A, x);
+        for (int i = 0; i < n; ++i) {
+            EXPECT_NEAR(Ax[i], b[i], kTol) << "残差：(A*x)[" << i << "] != b[" << i << "]";
+        }
+    }
+
+    // 置换里存在长度 > 2 的循环。单次对调的逆等于它自身，
+    // 因此只有长循环才能验出 y[i]=b[perm[i]] 有没有被写成反方向。
+    static bool has_long_cycle(const std::vector<int>& perm) {
+        int n = static_cast<int>(perm.size());
+        std::vector<bool> seen(n, false);
+        for (int s = 0; s < n; ++s) {
+            if (seen[s]) continue;
+            int len = 0, cur = s;
+            while (!seen[cur]) {
+                seen[cur] = true;
+                cur = perm[cur];
+                ++len;
+            }
+            if (len > 2) return true;
+        }
+        return false;
+    }
+};
+
+// 交接单的 2×2 手推用例。perm 为恒等，不涉及重排
+TEST_F(SolveTest, TwoByTwoNoPivoting) {
+    expect_solves(make(2, {2, 1,
+                           1, 3}), {5, 10}, {1, 3});
+}
+
+// 关键用例：perm 是 3-循环 [2,0,1]。若把 y[i]=b[perm[i]] 写成
+// y[perm[i]]=b[i]（逆置换），此用例会挂，而单次对调的用例察觉不到
+TEST_F(SolveTest, ThreeByThreeWithThreeCyclePermutation) {
+    Matrix A = make(3, {1, 3, 2,
+                        2, 1, 5,
+                        4, 1, 0});
+    Matrix L(3, 3), U(3, 3);
+    LUResult r = lu_decomposition(A, L, U);
+    ASSERT_TRUE(has_long_cycle(r.perm))
+        << "该用例必须产生长循环置换才有意义，否则测不出正/逆写反";
+
+    expect_solves(A, {13, 19, 6}, {1, 2, 3});
+}
+
+TEST_F(SolveTest, FourByFourMultipleSwaps) {
+    expect_solves(make(4, {1, 2, 0, 1,
+                           0, 1, 3, 2,
+                           5, 0, 1, 1,
+                           2, 3, 1, 0}),
+                  {-2.5, 8, 8.5, -1}, {1, -2, 3, 0.5});
+}
+
+TEST_F(SolveTest, NegativeCoefficientsAndFractionalSolution) {
+    expect_solves(make(3, {0, -4, 2,
+                           3, 1, -1,
+                           1, 2, 6}),
+                  {-6, 5.5, 11.5}, {1.5, 2, 1});
+}
+
+TEST_F(SolveTest, SingleElement) {
+    expect_solves(make(1, {5}), {10}, {2});
+}
+
+// 回归测试：曾经 perm 完全没被使用，解出来的是 A·x = P⁻¹b。
+// 这里 b[0] != b[1]，重排不是空操作 —— 若漏掉重排，A*x 会等于 b 的前两项对调
+TEST_F(SolveTest, PermutationIsActuallyApplied) {
+    Matrix A = make(3, {1, 2, 1,
+                        3, 1, 1,
+                        2, 1, 3});
+    expect_solves(A, {5, 6, 9}, {1, 1, 2});
+}
+
+// 反面对照：同一个 A，但 b[0] == b[1]，重排恰好退化成恒等。
+// 这种 b 永远测不出"漏掉重排"的 bug —— 保留它是为了记住这个测试设计陷阱
+TEST_F(SolveTest, PermutationDegeneratesWhenSwappedEntriesAreEqual) {
+    Matrix A = make(3, {1, 2, 1,
+                        3, 1, 1,
+                        2, 1, 3});
+    expect_solves(A, {8, 8, 13}, {1, 2, 3});
+}
+
+TEST_F(SolveTest, MismatchedRhsSizeThrows) {
+    Matrix A = make(2, {2, 1,
+                        1, 3});
+    Matrix L(2, 2), U(2, 2);
+    LUResult r = lu_decomposition(A, L, U);
+    EXPECT_THROW(lu_solve(r, std::vector<double>{1, 2, 3}), std::invalid_argument);
+}
