@@ -21,3 +21,11 @@ gtest_discover_tests(test_lu)
 add_executable(test_mna test_mna.cpp)
 target_link_libraries(test_mna PRIVATE SpiceLib GTest::gtest_main)
 gtest_discover_tests(test_mna)
+
+add_executable(test_sources test_sources.cpp)
+target_link_libraries(test_sources PRIVATE SpiceLib GTest::gtest_main)
+gtest_discover_tests(test_sources)
+
+add_executable(test_end_to_end test_end_to_end.cpp)
+target_link_libraries(test_end_to_end PRIVATE SpiceLib GTest::gtest_main)
+gtest_discover_tests(test_end_to_end)
