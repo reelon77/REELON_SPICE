@@ -19,6 +19,9 @@
 | 2026-08-01 | `lu_solve` 的 3 处工程性修改（**算法本体是你自己写的**） | 工程习惯，非算法 | ⬜ 未复盘 |
 | 2026-08-03 | `MnaResistorTest` 测试组（4 个用例，`tests/test_mna.cpp` 全文） | 测试设计 | ⬜ 未复盘 |
 | 2026-08-03 | `conductance_from` 校验辅助函数的套路（**MnaSystem/Resistor 本体是你自己写的**） | 工程习惯，非算法 | ⬜ 未复盘 |
+| 2026-08-03 | `CurrentSourceTest` 测试组（3 个用例，`tests/test_sources.cpp` 全文 + `tests/CMakeLists.txt` 注册）（**CurrentSource 本体是你自己写的，含符号 bug 也是你按提示自己改对的**） | 测试设计 | ⬜ 未复盘 |
+| 2026-08-03 | `VoltageSourceTest` 测试组（3 个用例，续写进 `tests/test_sources.cpp`）（**VoltageSource 本体是你自己写的**：raw 混合坐标的减一/跳地是你按伪代码提示自己完成的） | 测试设计 | ⬜ 未复盘 |
+| 2026-08-03 | `EndToEndGateTest`（`tests/test_end_to_end.cpp` 全文 + CMake 注册）——**8V 闸门测试，简历物证，必须逐行能讲** | 测试设计 | ⬜ 未复盘 |
 
 > **`lu_solve` 的归属要分清**：重排 + 前代 + 回代的**算法逻辑全部是你自己写的**，包括那个致命 bug 也是你自己
 > 按提示改对的 —— 这部分**不算 AI 代写，面试可以理直气壮说是自己实现的**。AI 只改了三处与算法无关的东西：
@@ -217,6 +220,45 @@ AI 另给过 `conductance_from` 的"文件局部辅助函数 + 初始化列表�
 | `NonPositiveResistanceThrows` | 构造期校验：0 阻（无穷电导）与负阻拒收 |
 
 自测题：如果 `add_to_A` 忘了写跳地的 `return`，哪个用例会以什么方式失败？（提示：下标 −1，越界写——想想为什么它可能不是干净地崩溃）
+
+---
+
+## 六、`CurrentSourceTest` 测试组（2026-08-03）
+
+**位置**：`tests/test_sources.cpp` 全文（AI 代写）+ `tests/CMakeLists.txt` 的 `test_sources` 注册三行；
+**CurrentSource.h/.cpp 本体是你自己写的**——初版符号反了（a 端写了 +I），是你按"a→b 意味着从 a 抽走 I"的提示自己改对的，这段推导面试必答。
+
+3 个用例分别在防什么：
+
+| 用例 | 防什么 |
+|------|--------|
+| `StampsTwoEntriesWithCorrectSigns` | 落点与符号：b(a) = −I、b(b) = +I，且 A 全零——电流源碰 A 就是 bug |
+| `GroundedTerminalIsSkipped` | 跳地：任一端接地时该端写入静默消失，双向各测一次 |
+| `CoexistsWithResistorWithoutPollutingA` | 器件正交性：电阻只写 A、电流源只写 b，同系统先后 stamp 互不污染 |
+
+自测题：为什么电流源不进 A 矩阵、电压源却要升维？（提示：谁的电流是已知数？）
+
+---
+
+## 七、`VoltageSourceTest` 测试组（2026-08-03）
+
+**位置**：`tests/test_sources.cpp` 的三个 `VoltageSourceTest` 用例（AI 代写）；
+**VoltageSource.h/.cpp 本体是你自己写的**。过程中你走过两条弯路，都值得复盘：
+① 5 次写入先用了 `add_to_A(…, k)`（矩阵下标混进节点接口，列错位一格）；
+② 又试过 `k + 1` 抵消内部减一（能算对但依赖实现细节的 hack）；
+③ 期间误删过 `MnaSystem::add_to_b` 的跳地卫兵（改公共模块迁就局部 bug，已还原）。
+最终版：混合坐标走 raw、节点维自己做"跳地 + 减一"——这条演化路径面试可以直接当案例讲。
+
+3 个用例分别在防什么：
+
+| 用例 | 防什么 |
+|------|--------|
+| `DimensionIncludesBranchUnknown` | 升维：dim = 节点数−1+源数，支路下标排在节点块之后 |
+| `StampsFiveEntriesInMixedCoordinates` | 5 个落点、KCL 行与约束行符号配对（转置对称）、G 子块/支路对角元/b 节点行不被污染 |
+| `GroundedNegativeTerminalLeavesThreeEntries` | 接地端两次写入整体消失（5→3），下标不越界 |
+
+自测题：把 KCL 行的 ±1 删掉（只留约束行），矩阵会发生什么？为什么物理上也必然如此？
+（提示：第 k 列整列为零意味着什么？那 2mA 从哪来？）
 
 ---
 
