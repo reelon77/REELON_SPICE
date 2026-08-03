@@ -5,6 +5,11 @@ add_library(SpiceLib STATIC
     core/Matrix.cpp
     core/LU.h
     core/LU.cpp
+    mna/MnaSystem.h
+    mna/MnaSystem.cpp
+    devices/Device.h
+    devices/Resistor.h
+    devices/Resistor.cpp
 )
 
 target_include_directories(SpiceLib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

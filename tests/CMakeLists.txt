@@ -17,3 +17,7 @@ gtest_discover_tests(test_matrix)
 add_executable(test_lu test_lu.cpp)
 target_link_libraries(test_lu PRIVATE SpiceLib GTest::gtest_main)
 gtest_discover_tests(test_lu)
+
+add_executable(test_mna test_mna.cpp)
+target_link_libraries(test_mna PRIVATE SpiceLib GTest::gtest_main)
+gtest_discover_tests(test_mna)

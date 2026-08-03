@@ -6,6 +6,7 @@ class Matrix {
 public:
     Matrix() = delete;
     Matrix(int i, int j);
+    explicit Matrix(int i);
     // 运算符重载，读写
     double& operator()(int i, int j);
     double operator()(int i, int j) const;
@@ -14,7 +15,7 @@ public:
     int cols() const;
 
 private:
-    int rows_ = 0;
-    int cols_ = 0;
+    int rows_;
+    int cols_;
     std::vector<double> matrix_;
 };
