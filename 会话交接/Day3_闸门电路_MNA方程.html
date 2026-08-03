@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>闸门电路的 MNA 方程</title>
+<style>
+  :root {
+    --bg: #f4f6f8;
+    --panel: #ffffff;
+    --ink: #22303c;
+    --muted: #64748b;
+    --line: #d7dde4;
+    --grid: #e8edf1;
+    --wire: #33414e;
+    --r: #4c6b8a;        /* 电阻 */
+    --v: #c05621;        /* 电压源:铜橙 */
+    --i: #0f8a7a;        /* 电流源:青 */
+    --v-bg: rgba(192, 86, 33, 0.10);
+    --i-bg: rgba(15, 138, 122, 0.10);
+    --r-bg: rgba(76, 107, 138, 0.10);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14181d;
+      --panel: #1c2329;
+      --ink: #e2e8ee;
+      --muted: #8fa0af;
+      --line: #323d47;
+      --grid: #232c34;
+      --wire: #c3ced8;
+      --r: #7fa3c7;
+      --v: #e08a4e;
+      --i: #3cb9a6;
+      --v-bg: rgba(224, 138, 78, 0.14);
+      --i-bg: rgba(60, 185, 166, 0.14);
+      --r-bg: rgba(127, 163, 199, 0.13);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #14181d; --panel: #1c2329; --ink: #e2e8ee; --muted: #8fa0af;
+    --line: #323d47; --grid: #232c34; --wire: #c3ced8;
+    --r: #7fa3c7; --v: #e08a4e; --i: #3cb9a6;
+    --v-bg: rgba(224, 138, 78, 0.14); --i-bg: rgba(60, 185, 166, 0.14); --r-bg: rgba(127, 163, 199, 0.13);
+  }
+  :root[data-theme="light"] {
+    --bg: #f4f6f8; --panel: #ffffff; --ink: #22303c; --muted: #64748b;
+    --line: #d7dde4; --grid: #e8edf1; --wire: #33414e;
+    --r: #4c6b8a; --v: #c05621; --i: #0f8a7a;
+    --v-bg: rgba(192, 86, 33, 0.10); --i-bg: rgba(15, 138, 122, 0.10); --r-bg: rgba(76, 107, 138, 0.10);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    background-image: linear-gradient(var(--grid) 1px, transparent 1px),
+                      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 28px 28px;
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    line-height: 1.75;
+    font-size: 16px;
+  }
+  main { max-width: 760px; margin: 0 auto; padding: 48px 20px 80px; }
+
+  header { margin-bottom: 36px; }
+  .eyebrow {
+    font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 8px; font-weight: 600;
+  }
+  h1 {
+    font-family: "Songti SC", "Noto Serif SC", "SimSun", serif;
+    font-size: 30px; font-weight: 700; margin: 0 0 10px;
+    text-wrap: balance; line-height: 1.35;
+  }
+  header p { color: var(--muted); margin: 0; max-width: 40em; }
+
+  section { margin-top: 44px; }
+  h2 {
+    font-family: "Songti SC", "Noto Serif SC", "SimSun", serif;
+    font-size: 21px; font-weight: 700; margin: 0 0 14px;
+    display: flex; align-items: baseline; gap: 10px;
+  }
+  h2 .no {
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 13px; color: var(--muted); font-weight: 500;
+  }
+  p { margin: 0 0 12px; max-width: 42em; }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 20px 24px;
+    overflow-x: auto;
+  }
+  figure { margin: 0; }
+  figcaption { font-size: 13.5px; color: var(--muted); margin-top: 10px; line-height: 1.6; }
+
+  svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+  svg text {
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 13px; fill: var(--ink);
+  }
+  svg .lbl-muted { fill: var(--muted); font-size: 12px;
+    font-family: -apple-system, "PingFang SC", sans-serif; }
+
+  /* 公式 */
+  .math, code {
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+  code {
+    font-size: 14px; background: var(--r-bg);
+    padding: 1px 5px; border-radius: 3px;
+  }
+  .eqs { display: flex; flex-direction: column; gap: 10px; font-size: 15px; }
+  .eqs .row { display: flex; gap: 14px; align-items: baseline; white-space: nowrap; }
+  .eqs .tag { min-width: 9em; color: var(--muted); font-size: 13px;
+    font-family: -apple-system, "PingFang SC", sans-serif; flex-shrink: 0; }
+
+  .tv { color: var(--v); font-weight: 600; }
+  .ti { color: var(--i); font-weight: 600; }
+  .tr { color: var(--r); }
+
+  /* 矩阵 */
+  .eq-line {
+    display: flex; align-items: center; gap: 14px;
+    justify-content: flex-start; flex-wrap: nowrap;
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 14.5px; font-variant-numeric: tabular-nums;
+    padding: 4px 0;
+  }
+  .matrix {
+    display: inline-grid; gap: 10px 0; padding: 8px 16px;
+    position: relative; text-align: center;
+  }
+  .matrix > span { padding: 0 10px; min-width: 3.2em; }
+  .matrix::before, .matrix::after {
+    content: ""; position: absolute; top: 0; bottom: 0; width: 7px;
+    border: 1.6px solid var(--ink);
+  }
+  .matrix::before { left: 0; border-right: none; border-radius: 2px 0 0 2px; }
+  .matrix::after { right: 0; border-left: none; border-radius: 0 2px 2px 0; }
+  .m3 { grid-template-columns: repeat(3, auto); }
+  .m1 { grid-template-columns: auto; }
+
+  .sv { background: var(--v-bg); color: var(--v); border-radius: 3px; font-weight: 600; }
+  .si { background: var(--i-bg); color: var(--i); border-radius: 3px; font-weight: 600; }
+  .sr1 { background: var(--r-bg); color: var(--r); border-radius: 3px; }
+  .sr2 { color: var(--r); border-radius: 3px; border: 1px dashed var(--r); }
+  .s0 { color: var(--muted); }
+
+  .legend {
+    display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 16px;
+    font-size: 13px; color: var(--muted); align-items: center;
+  }
+  .legend .chip {
+    display: inline-block; width: 26px; height: 15px; border-radius: 3px;
+    vertical-align: -2px; margin-right: 6px;
+  }
+
+  table { border-collapse: collapse; font-size: 14.5px; min-width: 340px; }
+  th, td { padding: 7px 16px; text-align: left; border-bottom: 1px solid var(--line); }
+  th { font-size: 12.5px; color: var(--muted); font-weight: 600; letter-spacing: 0.05em; }
+  td.num { font-family: "SF Mono", Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; }
+
+  .note {
+    border-left: 3px solid var(--v); padding: 2px 0 2px 16px;
+    color: var(--muted); font-size: 14.5px; margin-top: 18px; max-width: 40em;
+  }
+</style>
+
+</head>
+<body>
+<main>
+<header>
+  <div class="eyebrow">reelons_tiny_spice · Day 3</div>
+  <h1>一个具体电路,和它的 MNA 方程</h1>
+  <p>就用你 Day 3 闸门电路:V1 = 10V,R1 = 1kΩ,R2 = 4kΩ。先看电压源怎么把系统从 2 维撑到 3 维,再往里加一个电流源,看它为什么只动右端项 b。</p>
+</header>
+
+<section>
+  <h2><span class="no">1</span>电路图</h2>
+  <figure class="panel">
+    <svg viewBox="0 0 560 300" width="560" role="img" aria-label="闸门电路:电压源 V1 与电阻 R1、R2 组成的分压电路">
+      <g stroke="var(--wire)" stroke-width="2" fill="none" stroke-linecap="round">
+        <!-- 顶部导线:节点1 → R1 → 节点2 -->
+        <path d="M 80 70 H 180"/>
+        <path d="M 260 70 H 400"/>
+        <!-- 左支路:V1 -->
+        <path d="M 80 70 V 126"/>
+        <circle cx="80" cy="150" r="24"/>
+        <path d="M 80 174 V 240"/>
+        <!-- 右支路:R2 -->
+        <path d="M 400 70 V 122"/>
+        <path d="M 400 186 V 240"/>
+        <!-- 底部导线(参考节点) -->
+        <path d="M 80 240 H 400"/>
+        <!-- 接地符号 -->
+        <path d="M 240 240 V 256"/>
+        <path d="M 222 256 H 258"/>
+        <path d="M 229 263 H 251"/>
+        <path d="M 236 270 H 244"/>
+      </g>
+      <!-- R1 -->
+      <rect x="180" y="56" width="80" height="28" fill="var(--panel)" stroke="var(--r)" stroke-width="2"/>
+      <!-- R2 -->
+      <rect x="386" y="122" width="28" height="64" fill="var(--panel)" stroke="var(--r)" stroke-width="2"/>
+      <!-- V1 极性 -->
+      <circle cx="80" cy="150" r="24" fill="none" stroke="var(--v)" stroke-width="2"/>
+      <text x="80" y="147" text-anchor="middle" fill="var(--v)" font-weight="700">+</text>
+      <text x="80" y="166" text-anchor="middle" fill="var(--v)" font-weight="700">−</text>
+      <!-- 节点圆点 -->
+      <circle cx="80" cy="70" r="4.5" fill="var(--wire)"/>
+      <circle cx="400" cy="70" r="4.5" fill="var(--wire)"/>
+      <!-- 标注 -->
+      <text x="102" y="52">节点1  v₁</text>
+      <text x="342" y="52">节点2  v₂</text>
+      <text x="220" y="44" text-anchor="middle" fill="var(--r)">R1 = 1kΩ</text>
+      <text x="426" y="158" fill="var(--r)">R2 = 4kΩ</text>
+      <text x="30" y="140" text-anchor="end" fill="var(--v)">V1</text>
+      <text x="30" y="158" text-anchor="end" fill="var(--v)">10V</text>
+      <text x="266" y="288" class="lbl-muted">参考节点(地,v = 0)</text>
+      <!-- i_V1 方向箭头 -->
+      <g stroke="var(--v)" stroke-width="1.6" fill="none">
+        <path d="M 62 96 V 112"/>
+        <path d="M 57 106 L 62 113 L 67 106" fill="none"/>
+      </g>
+      <text x="52" y="92" text-anchor="end" fill="var(--v)" font-size="12">i_V1</text>
+    </svg>
+    <figcaption>电压源电流 i_V1 的参考方向按惯例取"从 + 极流入源内部"(即图中从节点 1 向下)。后面算出它是负的,说明实际方向相反——源在向外供流。</figcaption>
+  </figure>
+</section>
+
+<section>
+  <h2><span class="no">2</span>未知量</h2>
+  <p>2 个节点 + 1 个电压源,所以未知量是 2 + 1 = 3 个:</p>
+  <div class="panel">
+    <div class="math" style="font-size:15px">x = [ v₁, v₂, <span class="tv">i_V1</span> ]ᵀ</div>
+  </div>
+  <p style="margin-top:12px">前两个是节点电压(Nodal Analysis 的老未知量),第三个是流过电压源的电流——它就是 MNA 里 “Modified” 加出来的那一维,数学上是约束 v₁ = 10 的拉格朗日乘子。</p>
+</section>
+
+<section>
+  <h2><span class="no">3</span>逐条写方程</h2>
+  <p>每个非参考节点写一条 KCL(流出电流之和 = 0),每个电压源写一条约束:</p>
+  <div class="panel">
+    <div class="eqs math">
+      <div class="row"><span class="tag">KCL @ 节点1</span><span><span class="tr">(v₁ − v₂)/R1</span> + <span class="tv">i_V1</span> = 0</span></div>
+      <div class="row"><span class="tag">KCL @ 节点2</span><span><span class="tr">(v₂ − v₁)/R1</span> + <span class="tr">v₂/R2</span> = 0</span></div>
+      <div class="row"><span class="tag">约束 @ V1</span><span><span class="tv">v₁ = 10</span></span></div>
+    </div>
+  </div>
+  <p style="margin-top:12px">注意第一条:节点 1 上没有别的出路,R1 的电流全部由 <span class="math tv">i_V1</span> 平衡。第三条不是 KCL,它是电压源硬性规定的等式约束——正因为写不成 "电流 = f(电压)" 的形式,纯节点法才容纳不了它。</p>
+</section>
+
+<section>
+  <h2><span class="no">4</span>矩阵形式 Ax = b</h2>
+  <p>把上面三条按 x = [v₁, v₂, i_V1]ᵀ 整理,每一项的颜色标出它是哪个器件 stamp 进去的:</p>
+  <div class="panel">
+    <div class="eq-line">
+      <span class="matrix m3">
+        <span class="sr1">1/R1</span><span class="sr1">−1/R1</span><span class="sv">1</span>
+        <span class="sr1">−1/R1</span><span><span class="sr1">1/R1</span><span class="sr2">+1/R2</span></span><span class="s0">0</span>
+        <span class="sv">1</span><span class="s0">0</span><span class="s0">0</span>
+      </span>
+      <span class="matrix m1"><span>v₁</span><span>v₂</span><span class="tv">i_V1</span></span>
+      <span>=</span>
+      <span class="matrix m1"><span class="s0">0</span><span class="s0">0</span><span class="sv">10</span></span>
+    </div>
+    <div class="eq-line" style="margin-top:18px">
+      <span class="matrix m3">
+        <span class="sr1">0.001</span><span class="sr1">−0.001</span><span class="sv">1</span>
+        <span class="sr1">−0.001</span><span>0.00125</span><span class="s0">0</span>
+        <span class="sv">1</span><span class="s0">0</span><span class="s0">0</span>
+      </span>
+      <span class="matrix m1"><span>v₁</span><span>v₂</span><span class="tv">i_V1</span></span>
+      <span>=</span>
+      <span class="matrix m1"><span class="s0">0</span><span class="s0">0</span><span class="sv">10</span></span>
+    </div>
+    <div class="legend">
+      <span><span class="chip" style="background:var(--r-bg);border:1px solid var(--r)"></span>R1 的 stamp(2×2 对称块)</span>
+      <span><span class="chip" style="border:1px dashed var(--r)"></span>R2 的 stamp(只碰 (2,2),因为另一端接地)</span>
+      <span><span class="chip" style="background:var(--v-bg);border:1px solid var(--v)"></span>V1 的 stamp(B 列 + Bᵀ 行 + b)</span>
+    </div>
+  </div>
+  <p style="margin-top:14px">看结构:左上 2×2 是纯电阻的电导矩阵 G(对称);V1 贡献了第 3 列(<span class="math tv">i_V1</span> 进入节点 1 的 KCL)和第 3 行(约束方程),右下角是 0——这就是鞍点结构,也是 LU 要做部分主元的原因:不换行的话第 3 步主元可能落在这个 0 上。</p>
+</section>
+
+<section>
+  <h2><span class="no">5</span>解</h2>
+  <div class="panel">
+    <table>
+      <thead><tr><th>未知量</th><th>值</th><th>验证</th></tr></thead>
+      <tbody>
+        <tr><td class="math">v₁</td><td class="num">10 V</td><td>约束方程直接给出</td></tr>
+        <tr><td class="math">v₂</td><td class="num"><strong>8 V</strong></td><td class="num">10 × 4k/(1k+4k) 分压 ✓</td></tr>
+        <tr><td class="math tv">i_V1</td><td class="num">−2 mA</td><td class="num">−10/(1k+4k) ✓</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p style="margin-top:12px">这就是你的端到端闸门:三个断言 v₁ = 10、v₂ = 8、i_V1 = −0.002。</p>
+</section>
+
+<section>
+  <h2><span class="no">6</span>变体:加一个电流源,只有 b 会动</h2>
+  <figure class="panel">
+    <svg viewBox="0 0 560 300" width="560" role="img" aria-label="加入电流源 I1 后的电路">
+      <g stroke="var(--wire)" stroke-width="2" fill="none" stroke-linecap="round">
+        <path d="M 80 70 H 180"/>
+        <path d="M 260 70 H 490"/>
+        <path d="M 80 70 V 126"/>
+        <circle cx="80" cy="150" r="24"/>
+        <path d="M 80 174 V 240"/>
+        <path d="M 400 70 V 122"/>
+        <path d="M 400 186 V 240"/>
+        <path d="M 490 70 V 126"/>
+        <path d="M 490 174 V 240"/>
+        <path d="M 80 240 H 490"/>
+        <path d="M 240 240 V 256"/>
+        <path d="M 222 256 H 258"/>
+        <path d="M 229 263 H 251"/>
+        <path d="M 236 270 H 244"/>
+      </g>
+      <rect x="180" y="56" width="80" height="28" fill="var(--panel)" stroke="var(--r)" stroke-width="2"/>
+      <rect x="386" y="122" width="28" height="64" fill="var(--panel)" stroke="var(--r)" stroke-width="2"/>
+      <circle cx="80" cy="150" r="24" fill="none" stroke="var(--v)" stroke-width="2"/>
+      <text x="80" y="147" text-anchor="middle" fill="var(--v)" font-weight="700">+</text>
+      <text x="80" y="166" text-anchor="middle" fill="var(--v)" font-weight="700">−</text>
+      <!-- 电流源:圆 + 向上箭头 -->
+      <circle cx="490" cy="150" r="24" fill="var(--panel)" stroke="var(--i)" stroke-width="2"/>
+      <g stroke="var(--i)" stroke-width="2" fill="none">
+        <path d="M 490 164 V 138"/>
+        <path d="M 484 145 L 490 136 L 496 145"/>
+      </g>
+      <circle cx="80" cy="70" r="4.5" fill="var(--wire)"/>
+      <circle cx="400" cy="70" r="4.5" fill="var(--wire)"/>
+      <text x="102" y="52">节点1  v₁</text>
+      <text x="342" y="52">节点2  v₂</text>
+      <text x="220" y="44" text-anchor="middle" fill="var(--r)">R1 = 1kΩ</text>
+      <text x="352" y="158" fill="var(--r)" text-anchor="end">R2 = 4kΩ</text>
+      <text x="30" y="140" text-anchor="end" fill="var(--v)">V1</text>
+      <text x="30" y="158" text-anchor="end" fill="var(--v)">10V</text>
+      <text x="524" y="140" fill="var(--i)">I1</text>
+      <text x="524" y="158" fill="var(--i)">1mA</text>
+      <text x="266" y="288" class="lbl-muted">参考节点(地,v = 0)</text>
+    </svg>
+    <figcaption>I1 = 1mA,箭头向上:从地往节点 2 灌 1mA。</figcaption>
+  </figure>
+
+  <p style="margin-top:16px">节点 2 的 KCL 多了一个<strong>常数</strong>项(流入 1mA,移到右边):</p>
+  <div class="panel">
+    <div class="eqs math">
+      <div class="row"><span class="tag">KCL @ 节点2</span><span><span class="tr">(v₂ − v₁)/R1</span> + <span class="tr">v₂/R2</span> = <span class="ti">0.001</span></span></div>
+    </div>
+    <div class="eq-line" style="margin-top:18px">
+      <span class="matrix m3">
+        <span class="sr1">0.001</span><span class="sr1">−0.001</span><span class="sv">1</span>
+        <span class="sr1">−0.001</span><span>0.00125</span><span class="s0">0</span>
+        <span class="sv">1</span><span class="s0">0</span><span class="s0">0</span>
+      </span>
+      <span class="matrix m1"><span>v₁</span><span>v₂</span><span class="tv">i_V1</span></span>
+      <span>=</span>
+      <span class="matrix m1"><span class="s0">0</span><span class="si">0.001</span><span class="sv">10</span></span>
+    </div>
+    <div class="legend">
+      <span><span class="chip" style="background:var(--i-bg);border:1px solid var(--i)"></span>I1 的 stamp——整个系统里它只碰了这一个数</span>
+    </div>
+  </div>
+  <p style="margin-top:14px">矩阵 A 一个字没改,维度也没变。解变成 v₂ = 0.011/0.00125 = <strong>8.8 V</strong>,i_V1 = −1.2 mA。这就是两种源的本质差别落到代码上的样子:</p>
+  <div class="panel">
+    <table>
+      <thead><tr><th>器件</th><th>碰 A 吗</th><th>碰 b 吗</th><th>加未知量吗</th></tr></thead>
+      <tbody>
+        <tr><td class="math tr">Resistor</td><td>✓ (G 块)</td><td>—</td><td>—</td></tr>
+        <tr><td class="math ti">CurrentSource</td><td>—</td><td>✓ (±I₀)</td><td>—</td></tr>
+        <tr><td class="math tv">VoltageSource</td><td>✓ (B 列 + Bᵀ 行)</td><td>✓ (V₀)</td><td>✓ (+1 维)</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="note">写 VoltageSource::stamp 之前,先手算一遍第 4 节那个 3×3,再让测试去对——闸门的三个断言就是这张表的最后一列。</div>
+</section>
+</main>
+</body>
+</html>
