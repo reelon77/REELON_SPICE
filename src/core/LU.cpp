@@ -76,14 +76,13 @@ LUResult lu_decomposition_naked(const Matrix& A, Matrix& L, Matrix& U) {
 //   2. 循环是列优先（k 在外层）：每轮先定第 k 列主元、再拿它消下面所有行，
 //      所以"主元定稿"和"检查主元"发生在同一时刻，不会出现 naked 版那种
 //      "检查时非零、消元后才变零"的漏网
-LUResult lu_decomposition(const Matrix& A, Matrix& L, Matrix& U) {
+LUResult lu_decomposition(const Matrix& A) {
     if (A.rows() != A.cols()) {
         throw std::invalid_argument("Input matrix must be square.");
     }
+    Matrix L(A.rows(), A.cols());
+    Matrix U(A.rows(), A.cols());
     const int n = A.rows();
-    if (L.rows() != n || L.cols() != n || U.rows() != n || U.cols() != n) {
-        throw std::invalid_argument("L and U must be the same size as A.");
-    }
 
     // 主元阈值：电路里"节点悬空 / 整个网络未接地"会让 G 矩阵奇异。必须在这里
     // 拦下来报错，而不是让 1/0 变成 inf 一路传到节点电压里
@@ -130,7 +129,7 @@ LUResult lu_decomposition(const Matrix& A, Matrix& L, Matrix& U) {
     }
 
     // 5) 把就地结果拆成独立的 L（单位下三角）与 U（上三角）。
-    //    显式写 0，不依赖调用方传进来的 L/U 是全零矩阵
+    //    显式写 0，不依赖 Matrix 构造函数把元素初始化成零
     for (int i = 0; i < n; ++i) {
         for (int j = 0; j < n; ++j) {
             if (i > j) {

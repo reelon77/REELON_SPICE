@@ -213,8 +213,7 @@ TEST_F(PivotLUTest, WellConditionedReconstructsPA) {
     Matrix A = make(3, {2, 1, 1,
                         4, 3, 3,
                         8, 7, 9});
-    Matrix L(3, 3), U(3, 3);
-    LUResult r = lu_decomposition(A, L, U);
+    LUResult r = lu_decomposition(A);
 
     expect_unit_lower_triangular(r.L);
     expect_upper_triangular(r.U);
@@ -227,8 +226,7 @@ TEST_F(PivotLUTest, PivotBecomesZeroMidway) {
     Matrix A = make(3, {1, 1, 0,
                         1, 1, 1,
                         0, 1, 1});
-    Matrix L(3, 3), U(3, 3);
-    LUResult r = lu_decomposition(A, L, U);
+    LUResult r = lu_decomposition(A);
 
     expect_all_finite(r.L);
     expect_all_finite(r.U);
@@ -239,8 +237,7 @@ TEST_F(PivotLUTest, NeedsRowSwapAtStart) {
     Matrix A = make(3, {0, 1, 2,
                         1, 2, 3,
                         3, 1, 1});
-    Matrix L(3, 3), U(3, 3);
-    LUResult r = lu_decomposition(A, L, U);
+    LUResult r = lu_decomposition(A);
 
     expect_all_finite(r.L);
     expect_all_finite(r.U);
@@ -252,8 +249,7 @@ TEST_F(PivotLUTest, NeedsRowSwapAtStart) {
 TEST_F(PivotLUTest, PicksLargestMagnitudeNotFirstNonzero) {
     Matrix A = make(2, {1, 2,
                         100, 3});
-    Matrix L(2, 2), U(2, 2);
-    LUResult r = lu_decomposition(A, L, U);
+    LUResult r = lu_decomposition(A);
 
     EXPECT_EQ(r.perm[0], 1);
     EXPECT_NEAR(r.U(0, 0), 100.0, kTol);
@@ -265,24 +261,21 @@ TEST_F(PivotLUTest, PicksLargestMagnitudeNotFirstNonzero) {
 TEST_F(PivotLUTest, SingularMatrixThrows) {
     Matrix A = make(2, {1, 2,
                         2, 4});
-    Matrix L(2, 2), U(2, 2);
-    EXPECT_THROW(lu_decomposition(A, L, U), std::runtime_error);
+    EXPECT_THROW(lu_decomposition(A), std::runtime_error);
 }
 
 // 未接地电路：G 是带权图拉普拉斯，行和为 0 ⇒ 奇异 ⇒ 必须报错而不是给 inf
 TEST_F(PivotLUTest, UngroundedLaplacianThrows) {
     Matrix G = make(2, {0.001, -0.001,
                         -0.001, 0.001});
-    Matrix L(2, 2), U(2, 2);
-    EXPECT_THROW(lu_decomposition(G, L, U), std::runtime_error);
+    EXPECT_THROW(lu_decomposition(G), std::runtime_error);
 }
 
 // 对照：节点 2 经 R2 接地后，行和不再为 0，G 非奇异，正常分解
 TEST_F(PivotLUTest, GroundedGMatrixIsNonsingular) {
     Matrix G = make(2, {0.001, -0.001,
                         -0.001, 0.0015});
-    Matrix L(2, 2), U(2, 2);
-    LUResult r = lu_decomposition(G, L, U);
+    LUResult r = lu_decomposition(G);
 
     expect_all_finite(r.L);
     expect_all_finite(r.U);
@@ -291,28 +284,7 @@ TEST_F(PivotLUTest, GroundedGMatrixIsNonsingular) {
 
 TEST_F(PivotLUTest, NonSquareThrows) {
     Matrix A(2, 3);
-    Matrix L(2, 2), U(2, 2);
-    EXPECT_THROW(lu_decomposition(A, L, U), std::invalid_argument);
-}
-
-TEST_F(PivotLUTest, MismatchedLUSizeThrows) {
-    Matrix A(3, 3);
-    Matrix L(2, 2), U(2, 2);
-    EXPECT_THROW(lu_decomposition(A, L, U), std::invalid_argument);
-}
-
-// 不依赖调用方传全零的 L/U：脏矩阵也要被覆盖干净
-TEST_F(PivotLUTest, OverwritesDirtyOutputMatrices) {
-    Matrix A = make(2, {2, 1,
-                        1, 3});
-    Matrix L(2, 2), U(2, 2);
-    L(0, 1) = 99.0;
-    U(1, 0) = 99.0;
-    LUResult r = lu_decomposition(A, L, U);
-
-    expect_unit_lower_triangular(r.L);
-    expect_upper_triangular(r.U);
-    expect_LU_equals_PA(r, A);
+    EXPECT_THROW(lu_decomposition(A), std::invalid_argument);
 }
 
 // ============================================================
@@ -340,8 +312,7 @@ protected:
                               const std::vector<double>& b,
                               const std::vector<double>& expect) {
         const int n = A.rows();
-        Matrix L(n, n), U(n, n);
-        LUResult r = lu_decomposition(A, L, U);
+        LUResult r = lu_decomposition(A);
         std::vector<double> x = lu_solve(r, b);
 
         ASSERT_EQ(x.size(), expect.size());
@@ -386,8 +357,7 @@ TEST_F(SolveTest, ThreeByThreeWithThreeCyclePermutation) {
     Matrix A = make(3, {1, 3, 2,
                         2, 1, 5,
                         4, 1, 0});
-    Matrix L(3, 3), U(3, 3);
-    LUResult r = lu_decomposition(A, L, U);
+    LUResult r = lu_decomposition(A);
     ASSERT_TRUE(has_long_cycle(r.perm))
         << "该用例必须产生长循环置换才有意义，否则测不出正/逆写反";
 
@@ -434,7 +404,6 @@ TEST_F(SolveTest, PermutationDegeneratesWhenSwappedEntriesAreEqual) {
 TEST_F(SolveTest, MismatchedRhsSizeThrows) {
     Matrix A = make(2, {2, 1,
                         1, 3});
-    Matrix L(2, 2), U(2, 2);
-    LUResult r = lu_decomposition(A, L, U);
+    LUResult r = lu_decomposition(A);
     EXPECT_THROW(lu_solve(r, std::vector<double>{1, 2, 3}), std::invalid_argument);
 }

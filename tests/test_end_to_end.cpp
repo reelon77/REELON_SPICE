@@ -21,8 +21,7 @@ TEST(EndToEndGateTest, VoltageDividerSolvesTo8V) {
     r1.stamp(sys);
     r2.stamp(sys);
 
-    Matrix L(sys.dim()), U(sys.dim());
-    LUResult lu = lu_decomposition(sys.get_A(), L, U);
+    LUResult lu = lu_decomposition(sys.get_A());
     std::vector<double> x = lu_solve(lu, sys.get_b());
 
     ASSERT_EQ(static_cast<int>(x.size()), 3);
