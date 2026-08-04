@@ -26,6 +26,10 @@ add_executable(test_sources test_sources.cpp)
 target_link_libraries(test_sources PRIVATE SpiceLib GTest::gtest_main)
 gtest_discover_tests(test_sources)
 
+add_executable(test_diode test_diode.cpp)
+target_link_libraries(test_diode PRIVATE SpiceLib GTest::gtest_main)
+gtest_discover_tests(test_diode)
+
 add_executable(test_end_to_end test_end_to_end.cpp)
 target_link_libraries(test_end_to_end PRIVATE SpiceLib GTest::gtest_main)
 gtest_discover_tests(test_end_to_end)

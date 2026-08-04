@@ -8,12 +8,15 @@ add_library(SpiceLib STATIC
     mna/MnaSystem.h
     mna/MnaSystem.cpp
     devices/Device.h
+    devices/Device.cpp
     devices/Resistor.h
     devices/Resistor.cpp
     devices/CurrentSource.h
     devices/CurrentSource.cpp
     devices/VoltageSource.h
     devices/VoltageSource.cpp
+    devices/Diode.h
+    devices/Diode.cpp
 )
 
 target_include_directories(SpiceLib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
