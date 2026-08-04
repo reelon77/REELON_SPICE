@@ -1,4 +1,5 @@
 #include "MnaSystem.h"
+#include <algorithm>
 
 MnaSystem::MnaSystem(int nodes, int voltageSources) : 
     A_(nodes - 1 + voltageSources),
@@ -39,6 +40,11 @@ const Matrix& MnaSystem::get_A() const {
 
 const std::vector<double>& MnaSystem::get_b() const {
     return b_;
+}
+
+void MnaSystem::clear() {
+    A_.clear();
+    std::fill(b_.begin(), b_.end(), 0.0);
 }
 
 int MnaSystem::dim() const {

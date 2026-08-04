@@ -1,4 +1,5 @@
 #include "Matrix.h"
+#include <algorithm>
 
 Matrix::Matrix(int i, int j) : rows_(i), cols_(j), matrix_(i * j) {}
 Matrix::Matrix(int i) : rows_(i), cols_(i), matrix_(i * i) {}
@@ -17,4 +18,8 @@ int Matrix::rows() const {
 
 int Matrix::cols() const {
     return cols_;
+}
+
+void Matrix::clear() {
+    std::fill(matrix_.begin(), matrix_.end(), 0.0);
 }
