@@ -1,19 +1,19 @@
 #include "VoltageSource.h"
 #include "mna/MnaSystem.h"
 
-VoltageSource::VoltageSource(double voltage, int node1, int node2, int sourceIndex)
-    : voltage_(voltage), node1_(node1), node2_(node2), sourceIndex_(sourceIndex) {
+VoltageSource::VoltageSource(double voltage, int node_pos, int node_neg, int sourceIndex)
+    : voltage_(voltage), node_pos_(node_pos), node_neg_(node_neg), sourceIndex_(sourceIndex) {
 }
 
 void VoltageSource::stamp(MnaSystem& mna) const {
     int k = mna.branch_index(sourceIndex_);
-    if (node1_ != 0) {
-        mna.add_to_A_raw(node1_ - 1, k, 1.0);
-        mna.add_to_A_raw(k, node1_ - 1, 1.0);
+    if (node_pos_ != 0) {
+        mna.add_to_A_raw(node_pos_ - 1, k, 1.0);
+        mna.add_to_A_raw(k, node_pos_ - 1, 1.0);
     }
-    if (node2_ != 0) {
-        mna.add_to_A_raw(node2_ - 1, k, -1.0);
-        mna.add_to_A_raw(k, node2_ - 1, -1.0);
+    if (node_neg_ != 0) {
+        mna.add_to_A_raw(node_neg_ - 1, k, -1.0);
+        mna.add_to_A_raw(k, node_neg_ - 1, -1.0);
     }
     mna.add_to_b_raw(k, voltage_);
 
