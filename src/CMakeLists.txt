@@ -17,6 +17,8 @@ add_library(SpiceLib STATIC
     devices/VoltageSource.cpp
     devices/Diode.h
     devices/Diode.cpp
+    solver/newton.h
+    solver/newton.cpp
 )
 
 target_include_directories(SpiceLib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
