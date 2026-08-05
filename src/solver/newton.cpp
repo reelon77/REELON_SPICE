@@ -1,5 +1,10 @@
 #include "newton.h"
+#include "core/LU.h"
+
 #include <algorithm>
+#include <cmath>
+#include <numeric>
+#include <stdexcept>
 
 NewtonResult newton_solve(const std::vector<Device*>& devices, MnaSystem& sys, double tol, int max_iter) {
     std::vector<double> x(sys.dim(), 0.0); // 初始解向量

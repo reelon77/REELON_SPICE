@@ -13,7 +13,9 @@ void Diode::stamp(MnaSystem& mna) const {
 
 void Diode::stamp(MnaSystem& mna, const std::vector<double>& x) const {
     double v;
-    if (node_neg_ == 0) {
+    if (node_pos_ == 0 && node_neg_ == 0) {
+        v = 0.0;
+    } else if (node_neg_ == 0) {
         v = x[node_pos_ - 1];
     } else if (node_pos_ == 0) {
         v = -x[node_neg_ - 1];

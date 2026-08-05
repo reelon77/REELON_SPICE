@@ -43,7 +43,7 @@ const std::vector<double>& MnaSystem::get_b() const {
 }
 
 void MnaSystem::clear() {
-    A_.clear();
+    A_.zeros();
     std::fill(b_.begin(), b_.end(), 0.0);
 }
 

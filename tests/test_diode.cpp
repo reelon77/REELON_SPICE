@@ -129,3 +129,35 @@ TEST(DiodeInterfaceTest, TwoArgStampDispatchesThroughBasePointer) {
 
     EXPECT_NEAR(sys.get_A()(0, 0), kGeq05, 1e-12);
 }
+
+// ============================================================
+// 病态网表:两端同电位的退化二极管
+// 设计决策(Day 5):静默容忍为净 no-op,不在构造期拒绝。
+// 本组用例钉住该行为——尤其"两端同地"曾经会越界读 x[-1]
+// ============================================================
+
+// 两端都接地:v 走专用分支取 0,I_eq = 0,四次 add_to_A/两次 add_to_b
+// 全部落在地上被 MnaSystem 跳过 ⇒ 不越界、不崩、A/b 纹丝不动
+TEST(DiodeDegenerateTest, BothTerminalsGroundedIsSilentNoOp) {
+    MnaSystem sys(2, 0); // 结点 0(地)、1 → dim = 1
+    Diode d(kIs, kVt, 0, 0);
+    std::vector<double> x{0.3}; // 非零,若误用 x[-1]/x[0] 会现形
+
+    ASSERT_NO_THROW(d.stamp(sys, x));
+
+    EXPECT_EQ(sys.get_A()(0, 0), 0.0) << "全接地二极管不应留下任何印章";
+    EXPECT_EQ(sys.get_b()[0], 0.0);
+}
+
+// 两端同一非地结点(D1 2 2 这种短接):走 else 分支,v = x[i]−x[i] = 0,
+// G_eq 在同一格 +G 又 −G 相消,I_eq = 0 ⇒ 同样净 no-op
+TEST(DiodeDegenerateTest, ShortedOnSameNodeIsSilentNoOp) {
+    MnaSystem sys(2, 0);
+    Diode d(kIs, kVt, 1, 1);
+    std::vector<double> x{0.3};
+
+    ASSERT_NO_THROW(d.stamp(sys, x));
+
+    EXPECT_EQ(sys.get_A()(0, 0), 0.0) << "+G_eq 与 −G_eq 应在同一格完全相消";
+    EXPECT_EQ(sys.get_b()[0], 0.0);
+}

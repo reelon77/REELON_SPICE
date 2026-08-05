@@ -10,7 +10,7 @@ public:
     // 运算符重载，读写
     double& operator()(int i, int j);
     double operator()(int i, int j) const;
-    void clear();
+    void zeros();
 
     int rows() const;
     int cols() const;

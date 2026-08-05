@@ -20,6 +20,6 @@ int Matrix::cols() const {
     return cols_;
 }
 
-void Matrix::clear() {
+void Matrix::zeros() {
     std::fill(matrix_.begin(), matrix_.end(), 0.0);
 }

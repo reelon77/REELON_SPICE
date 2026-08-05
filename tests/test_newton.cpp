@@ -25,10 +25,10 @@ TEST(NewtonSmokeTest, LinearDividerConvergesInstantlyToSameAnswer) {
     NewtonResult r = newton_solve(devices, sys, 1e-9, 300);
 
     EXPECT_LE(r.iterations, 2) << "线性电路应 1~2 轮收敛,更多轮 = 每轮组装出的方程不一致";
-    ASSERT_EQ(static_cast<int>(r.res.size()), 3);
-    EXPECT_NEAR(r.res[0], 10.0, 1e-9);
-    EXPECT_NEAR(r.res[1], 8.0, 1e-9) << "答案必须仍是 Day 3 的 8V";
-    EXPECT_NEAR(r.res[2], -2e-3, 1e-9);
+    ASSERT_EQ(static_cast<int>(r.x.size()), 3);
+    EXPECT_NEAR(r.x[0], 10.0, 1e-9);
+    EXPECT_NEAR(r.x[1], 8.0, 1e-9) << "答案必须仍是 Day 3 的 8V";
+    EXPECT_NEAR(r.x[2], -2e-3, 1e-9);
 }
 
 // ============================================================
@@ -45,10 +45,10 @@ TEST(NewtonEndToEndTest, DiodeCircuitConvergesToTrueSolution) {
 
     NewtonResult result = newton_solve(devices, sys, 1e-9, 300);
 
-    ASSERT_EQ(static_cast<int>(result.res.size()), 3);
-    EXPECT_NEAR(result.res[0], 5.0, 1e-9) << "v1 被源钉死";
-    EXPECT_NEAR(result.res[1], 0.574191503, 1e-6) << "二极管工作点,闸门核心断言";
-    EXPECT_NEAR(result.res[2], -4.425808e-3, 1e-6) << "回路电流 (v2−5)/R";
+    ASSERT_EQ(static_cast<int>(result.x.size()), 3);
+    EXPECT_NEAR(result.x[0], 5.0, 1e-9) << "v1 被源钉死";
+    EXPECT_NEAR(result.x[1], 0.574191503, 1e-6) << "二极管工作点,闸门核心断言";
+    EXPECT_NEAR(result.x[2], -4.425808e-3, 1e-6) << "回路电流 (v2−5)/R";
     EXPECT_GE(result.iterations, 10) << "几轮就'收敛'多半是二极管没参与";
     EXPECT_LE(result.iterations, 300) << "量级失控";
 }
