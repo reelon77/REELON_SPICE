@@ -19,6 +19,8 @@ add_library(SpiceLib STATIC
     devices/Diode.cpp
     solver/newton.h
     solver/newton.cpp
+    parser/numeric.h
+    parser/numeric.cpp
 )
 
 target_include_directories(SpiceLib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
