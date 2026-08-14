@@ -7,9 +7,11 @@
 //   - 数字后既非空也非合法后缀 → std::invalid_argument,消息含原始输入
 // 期望值全部由主会话手工核算(均为 10 的整数次幂缩放,无舍入陷阱)。
 #include "parser/numeric.h"
+#include "parser/tokenize.h"
 #include <cmath>
 #include <gtest/gtest.h>
 #include <stdexcept>
+#include <vector>
 
 namespace {
 
@@ -77,4 +79,37 @@ TEST(SpiceValueTest, RejectsBadSuffix) {
     EXPECT_THROW(string2double("1kk"), std::invalid_argument);     // 后缀重复
     EXPECT_THROW(string2double("10kohm"), std::invalid_argument);  // 垃圾尾巴
     EXPECT_THROW(string2double("1me"), std::invalid_argument);     // meg 拼一半
+}
+
+// ---------- 解析器第 2 档:单行切词 ----------
+// 本组测试由 AI 代写，受测的 tokenize 实现由用户亲手编写。
+
+TEST(TokenizeTest, EmptyAndWhitespaceOnlyLinesProduceNoTokens) {
+    EXPECT_TRUE(tokenize("").empty());
+    EXPECT_TRUE(tokenize("   \t\r\n").empty());
+}
+
+TEST(TokenizeTest, FullLineCommentsProduceNoTokens) {
+    EXPECT_TRUE(tokenize("* comment").empty());
+    EXPECT_TRUE(tokenize("   \t* indented comment").empty());
+}
+
+TEST(TokenizeTest, SplitsOnMixedWhitespaceAndTrimsEdges) {
+    const std::vector<std::string> expected{"v1", "in", "0", "5"};
+    EXPECT_EQ(tokenize("  \tV1  IN\t0  5\r"), expected);
+}
+
+TEST(TokenizeTest, LowercasesEveryToken) {
+    const std::vector<std::string> expected{"rload", "in", "out", "1k", "1e-12"};
+    EXPECT_EQ(tokenize("RLOAD IN Out 1K 1E-12"), expected);
+}
+
+TEST(TokenizeTest, PreservesDirectiveTokens) {
+    EXPECT_EQ(tokenize(".OP"), std::vector<std::string>{".op"});
+    EXPECT_EQ(tokenize("  .END  "), std::vector<std::string>{".end"});
+}
+
+TEST(TokenizeTest, MiddleAsteriskRemainsAnOrdinaryToken) {
+    const std::vector<std::string> expected{"r1", "1", "0", "1k", "*", "text"};
+    EXPECT_EQ(tokenize("R1 1 0 1K * TEXT"), expected);
 }

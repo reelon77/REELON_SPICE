@@ -22,6 +22,8 @@
 | 2026-08-03 | `CurrentSourceTest` 测试组（3 个用例，`tests/test_sources.cpp` 全文 + `tests/CMakeLists.txt` 注册）（**CurrentSource 本体是你自己写的，含符号 bug 也是你按提示自己改对的**） | 测试设计 | ⬜ 未复盘 |
 | 2026-08-03 | `VoltageSourceTest` 测试组（3 个用例，续写进 `tests/test_sources.cpp`）（**VoltageSource 本体是你自己写的**：raw 混合坐标的减一/跳地是你按伪代码提示自己完成的） | 测试设计 | ⬜ 未复盘 |
 | 2026-08-03 | `EndToEndGateTest`（`tests/test_end_to_end.cpp` 全文 + CMake 注册）——**8V 闸门测试，简历物证，必须逐行能讲** | 测试设计 | ⬜ 未复盘 |
+| 2026-08-13 | `SpiceValueTest`（8 个用例，`tests/test_parser.cpp` 数值解析部分） | 测试设计 | ⬜ 未复盘 |
+| 2026-08-14 | `TokenizeTest`（6 个用例，续写进 `tests/test_parser.cpp`）+ `src/CMakeLists.txt` 挂载 | 测试设计 / 工程配置 | ⬜ 未复盘 |
 
 > **`lu_solve` 的归属要分清**：重排 + 前代 + 回代的**算法逻辑全部是你自己写的**，包括那个致命 bug 也是你自己
 > 按提示改对的 —— 这部分**不算 AI 代写，面试可以理直气壮说是自己实现的**。AI 只改了三处与算法无关的东西：

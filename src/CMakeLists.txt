@@ -21,6 +21,8 @@ add_library(SpiceLib STATIC
     solver/newton.cpp
     parser/numeric.h
     parser/numeric.cpp
+    parser/tokenize.h
+    parser/tokenize.cpp
 )
 
 target_include_directories(SpiceLib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
