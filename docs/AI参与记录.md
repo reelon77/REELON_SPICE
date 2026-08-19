@@ -24,6 +24,7 @@
 | 2026-08-03 | `EndToEndGateTest`（`tests/test_end_to_end.cpp` 全文 + CMake 注册）——**8V 闸门测试，简历物证，必须逐行能讲** | 测试设计 | ⬜ 未复盘 |
 | 2026-08-13 | `SpiceValueTest`（8 个用例，`tests/test_parser.cpp` 数值解析部分） | 测试设计 | ⬜ 未复盘 |
 | 2026-08-14 | `TokenizeTest`（6 个用例，续写进 `tests/test_parser.cpp`）+ `src/CMakeLists.txt` 挂载 | 测试设计 / 工程配置 | ⬜ 未复盘 |
+| 2026-08-20 | `CircuitParserTest`（4 个用例，`tests/test_parser.cpp` 语义层第 1 档） | 测试设计 | ⬜ 未复盘 |
 
 > **`lu_solve` 的归属要分清**：重排 + 前代 + 回代的**算法逻辑全部是你自己写的**，包括那个致命 bug 也是你自己
 > 按提示改对的 —— 这部分**不算 AI 代写，面试可以理直气壮说是自己实现的**。AI 只改了三处与算法无关的东西：
@@ -261,6 +262,20 @@ AI 另给过 `conductance_from` 的"文件局部辅助函数 + 初始化列表�
 
 自测题：把 KCL 行的 ±1 删掉（只留约束行），矩阵会发生什么？为什么物理上也必然如此？
 （提示：第 k 列整列为零意味着什么？那 2mA 从哪来？）
+
+---
+
+## 八、`CircuitParserTest` 测试组（2026-08-20）
+
+**位置**：`tests/test_parser.cpp` 的 4 个 `CircuitParserTest` 用例（AI 代写）；
+**`Circuit` 与 `parse_circuit` 本体由用户亲手编写**。
+
+| 用例 | 防什么 |
+|------|--------|
+| `ParsesOpWhileSkippingBlankAndCommentLines` | `getline → tokenize` 主循环、空行/注释跳过、`.op` 状态和默认空电路字段 |
+| `EndStopsBeforeInvalidFollowingContent` | `.end` 必须立即停止；同时防止 `.end` 自己错误地设置 `Op` |
+| `RejectsOpArgumentsAndReportsLineNumber` | `.op` 参数数量校验及从 1 开始的真实网表行号 |
+| `RejectsEndArgumentsAndReportsLineNumber` | `.end` 必须先校验参数再退出，并报告真实行号 |
 
 ---
 

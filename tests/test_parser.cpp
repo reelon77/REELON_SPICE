@@ -6,11 +6,14 @@
 //   - 后缀表: f p n u m k meg g t(注意 m=milli=1e-3,Mega 拼作 meg)
 //   - 数字后既非空也非合法后缀 → std::invalid_argument,消息含原始输入
 // 期望值全部由主会话手工核算(均为 10 的整数次幂缩放,无舍入陷阱)。
+#include "parser/Circuit.h"
 #include "parser/numeric.h"
 #include "parser/tokenize.h"
 #include <cmath>
 #include <gtest/gtest.h>
+#include <sstream>
 #include <stdexcept>
+#include <string>
 #include <vector>
 
 namespace {
@@ -112,4 +115,66 @@ TEST(TokenizeTest, PreservesDirectiveTokens) {
 TEST(TokenizeTest, MiddleAsteriskRemainsAnOrdinaryToken) {
     const std::vector<std::string> expected{"r1", "1", "0", "1k", "*", "text"};
     EXPECT_EQ(tokenize("R1 1 0 1K * TEXT"), expected);
+}
+
+// ---------- 解析器语义层第 1 档:逐行主循环 + .op/.end ----------
+// 本组测试由 AI 代写，受测的 Circuit/parse_circuit 实现由用户亲手编写。
+
+TEST(CircuitParserTest, ParsesOpWhileSkippingBlankAndCommentLines) {
+    std::istringstream input(
+        "\n"
+        "  * comment\n"
+        "\t\n"
+        ".OP\n"
+        ".END\n");
+
+    Circuit circuit = parse_circuit(input);
+
+    EXPECT_EQ(circuit.analysis_type, AnalysisType::Op);
+    EXPECT_TRUE(circuit.devices.empty());
+    EXPECT_EQ(circuit.nodes, 1);
+    EXPECT_EQ(circuit.num_voltage_sources, 0);
+}
+
+TEST(CircuitParserTest, EndStopsBeforeInvalidFollowingContent) {
+    std::istringstream input(
+        ".end\n"
+        ".op unexpected\n");
+
+    Circuit circuit = parse_circuit(input);
+
+    EXPECT_EQ(circuit.analysis_type, AnalysisType::None);
+}
+
+TEST(CircuitParserTest, RejectsOpArgumentsAndReportsLineNumber) {
+    std::istringstream input(
+        "\n"
+        "* comment\n"
+        "\n"
+        ".op unexpected\n");
+
+    try {
+        (void)parse_circuit(input);
+        FAIL() << "带参数的 .op 应抛出异常";
+    } catch (const std::runtime_error& e) {
+        const std::string message = e.what();
+        EXPECT_NE(message.find("4:"), std::string::npos);
+        EXPECT_NE(message.find(".op"), std::string::npos);
+    }
+}
+
+TEST(CircuitParserTest, RejectsEndArgumentsAndReportsLineNumber) {
+    std::istringstream input(
+        ".op\n"
+        "\n"
+        ".end unexpected\n");
+
+    try {
+        (void)parse_circuit(input);
+        FAIL() << "带参数的 .end 应抛出异常";
+    } catch (const std::runtime_error& e) {
+        const std::string message = e.what();
+        EXPECT_NE(message.find("3:"), std::string::npos);
+        EXPECT_NE(message.find(".end"), std::string::npos);
+    }
 }
