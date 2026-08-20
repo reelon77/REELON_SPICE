@@ -24,7 +24,7 @@
 | 2026-08-03 | `EndToEndGateTest`（`tests/test_end_to_end.cpp` 全文 + CMake 注册）——**8V 闸门测试，简历物证，必须逐行能讲** | 测试设计 | ⬜ 未复盘 |
 | 2026-08-13 | `SpiceValueTest`（8 个用例，`tests/test_parser.cpp` 数值解析部分） | 测试设计 | ⬜ 未复盘 |
 | 2026-08-14 | `TokenizeTest`（6 个用例，续写进 `tests/test_parser.cpp`）+ `src/CMakeLists.txt` 挂载 | 测试设计 / 工程配置 | ⬜ 未复盘 |
-| 2026-08-20 | `CircuitParserTest`（4 个用例，`tests/test_parser.cpp` 语义层第 1 档） | 测试设计 | ⬜ 未复盘 |
+| 2026-08-20 | `CircuitParserTest`（4 个用例）+ `src/CMakeLists.txt` 挂载 `Circuit.h/.cpp` | 测试设计 / 工程配置 | ⬜ 未复盘 |
 | 2026-08-20 | `CircuitNodeMappingTest`（3 个用例，`tests/test_parser.cpp` 语义层第 2 档） | 测试设计 | ⬜ 未复盘 |
 | 2026-08-21 | `CircuitDeviceParsingTest`（5 个用例，`tests/test_parser.cpp` 语义层第 3 档） | 测试设计 | ⬜ 未复盘 |
 | 2026-08-21 | `ParserEndToEndTest`（2 个用例，`tests/test_end_to_end.cpp` 解析器第 4 档） | 测试设计 | ⬜ 未复盘 |
@@ -270,7 +270,8 @@ AI 另给过 `conductance_from` 的"文件局部辅助函数 + 初始化列表�
 
 ## 八、`CircuitParserTest` 测试组（2026-08-20）
 
-**位置**：`tests/test_parser.cpp` 的 4 个 `CircuitParserTest` 用例（AI 代写）；
+**位置**：`tests/test_parser.cpp` 的 4 个 `CircuitParserTest` 用例（AI 代写），
+以及 `src/CMakeLists.txt` 中 `Circuit.h/.cpp` 的机械挂载；
 **`Circuit` 与 `parse_circuit` 本体由用户亲手编写**。
 
 | 用例 | 防什么 |
