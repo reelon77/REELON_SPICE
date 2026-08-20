@@ -27,6 +27,7 @@
 | 2026-08-20 | `CircuitParserTest`（4 个用例，`tests/test_parser.cpp` 语义层第 1 档） | 测试设计 | ⬜ 未复盘 |
 | 2026-08-20 | `CircuitNodeMappingTest`（3 个用例，`tests/test_parser.cpp` 语义层第 2 档） | 测试设计 | ⬜ 未复盘 |
 | 2026-08-21 | `CircuitDeviceParsingTest`（5 个用例，`tests/test_parser.cpp` 语义层第 3 档） | 测试设计 | ⬜ 未复盘 |
+| 2026-08-21 | `ParserEndToEndTest`（2 个用例，`tests/test_end_to_end.cpp` 解析器第 4 档） | 测试设计 | ⬜ 未复盘 |
 
 > **`lu_solve` 的归属要分清**：重排 + 前代 + 回代的**算法逻辑全部是你自己写的**，包括那个致命 bug 也是你自己
 > 按提示改对的 —— 这部分**不算 AI 代写，面试可以理直气壮说是自己实现的**。AI 只改了三处与算法无关的东西：
@@ -306,6 +307,20 @@ AI 另给过 `conductance_from` 的"文件局部辅助函数 + 初始化列表�
 | `RejectsUnsupportedDirectiveAndReportsLineAndToken` | `.dc` 等停车场指令不得被提前实现或静默接受 |
 | `RejectsWrongTokenCountForEveryDeviceKind` | R/V/I 必须恰好 4 个 token，D 必须恰好 3 个；同时防止偷偷接受二极管模型名 |
 | `RejectsInvalidNumericValueWithLineAndToken` | R/V/I 都必须经过统一数值解析和行号包装，不能将非法值带入器件构造 |
+
+---
+
+## 十一、`ParserEndToEndTest` 测试组（2026-08-21）
+
+**位置**：`tests/test_end_to_end.cpp` 的 2 个 `ParserEndToEndTest` 用例（AI 代写）；
+**parser、MNA、器件 stamp、LU 和牛顿求解器实现均由用户亲手编写**。
+
+| 用例 | 防什么 |
+|------|--------|
+| `VoltageDividerNetlistSolvesTo8V` | 真实网表文本从切词、节点映射、R/V 构造一路进入 MNA/LU，并恢复 `v1=10V`、`v2=8V`、`iV1=-2mA` |
+| `DiodeNetlistConvergesToExpectedOperatingPoint` | D 行确实使用默认 `Is/Vt`并参与牛顿迭代，工作点收敛到 `v2=0.574191503V` |
+
+`borrow_devices` 只从 `Circuit` 借用 `Device*`，不转移所有权；两个测试执行期间 `Circuit` 始终存活。
 
 ---
 
