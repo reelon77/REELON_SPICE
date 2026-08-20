@@ -9,6 +9,10 @@
 #include "parser/Circuit.h"
 #include "parser/numeric.h"
 #include "parser/tokenize.h"
+#include "devices/CurrentSource.h"
+#include "devices/Diode.h"
+#include "devices/Resistor.h"
+#include "devices/VoltageSource.h"
 #include <cmath>
 #include <gtest/gtest.h>
 #include <sstream>
@@ -215,4 +219,87 @@ TEST(CircuitNodeMappingTest, EverySupportedDevicePrefixContributesNodes) {
     Circuit circuit = parse_circuit(input);
 
     EXPECT_EQ(circuit.nodes, 5);
+}
+
+// ---------- 解析器语义层第 3 档:器件行语义 ----------
+// 本组测试由 AI 代写，受测的 R/V/I/D 解析实现由用户亲手编写。
+
+namespace {
+
+void expect_parse_error_contains(
+    const std::string& netlist,
+    const std::vector<std::string>& expected_fragments) {
+    std::istringstream input(netlist);
+    try {
+        (void)parse_circuit(input);
+        FAIL() << "网表应被拒绝: " << netlist;
+    } catch (const std::runtime_error& e) {
+        const std::string message = e.what();
+        for (const std::string& fragment : expected_fragments) {
+            EXPECT_NE(message.find(fragment), std::string::npos)
+                << "错误消息缺少片段 \"" << fragment << "\": " << message;
+        }
+    }
+}
+
+} // namespace
+
+TEST(CircuitDeviceParsingTest, CreatesEverySupportedDeviceInNetlistOrder) {
+    std::istringstream input(
+        "R1 nr 0 1k\n"
+        "V1 nv 0 5\n"
+        "I1 ni 0 1m\n"
+        "D1 nd 0\n"
+        ".op\n"
+        ".end\n");
+
+    Circuit circuit = parse_circuit(input);
+
+    ASSERT_EQ(circuit.devices.size(), 4u);
+    EXPECT_NE(dynamic_cast<Resistor*>(circuit.devices[0].get()), nullptr);
+    EXPECT_NE(dynamic_cast<VoltageSource*>(circuit.devices[1].get()), nullptr);
+    EXPECT_NE(dynamic_cast<CurrentSource*>(circuit.devices[2].get()), nullptr);
+    EXPECT_NE(dynamic_cast<Diode*>(circuit.devices[3].get()), nullptr);
+    EXPECT_EQ(circuit.nodes, 5);
+    EXPECT_EQ(circuit.num_voltage_sources, 1);
+    EXPECT_EQ(circuit.analysis_type, AnalysisType::Op);
+}
+
+TEST(CircuitDeviceParsingTest, RejectsUnknownDeviceAndReportsLineAndToken) {
+    expect_parse_error_contains(
+        "\nX1 1 0 7\n",
+        {"2:", "x1"});
+}
+
+TEST(CircuitDeviceParsingTest, RejectsUnsupportedDirectiveAndReportsLineAndToken) {
+    expect_parse_error_contains(
+        ".dc V1 0 5 1\n",
+        {"1:", ".dc"});
+}
+
+TEST(CircuitDeviceParsingTest, RejectsWrongTokenCountForEveryDeviceKind) {
+    const std::vector<std::string> malformed_lines{
+        "R1 1 0\n",
+        "V1 1 0 5 extra\n",
+        "I1 1 0\n",
+        "D1 1 0 model\n",
+    };
+
+    for (const std::string& line : malformed_lines) {
+        SCOPED_TRACE(line);
+        expect_parse_error_contains(line, {"1:"});
+    }
+}
+
+TEST(CircuitDeviceParsingTest, RejectsInvalidNumericValueWithLineAndToken) {
+    const std::vector<std::string> invalid_numeric_lines{
+        "R1 1 0 invalid\n",
+        "V1 1 0 invalid\n",
+        "I1 1 0 invalid\n",
+    };
+
+    for (const std::string& line : invalid_numeric_lines) {
+        SCOPED_TRACE(line);
+        expect_parse_error_contains(line, {"1:", "invalid"});
+    }
 }
