@@ -178,3 +178,41 @@ TEST(CircuitParserTest, RejectsEndArgumentsAndReportsLineNumber) {
         EXPECT_NE(message.find(".end"), std::string::npos);
     }
 }
+
+// ---------- 解析器语义层第 2 档:节点名称映射 ----------
+// 本组测试由 AI 代写，受测的节点映射实现由用户亲手编写。
+
+TEST(CircuitNodeMappingTest, ZeroAndGndShareTheGroundNode) {
+    std::istringstream input(
+        "R1 0 gnd 1k\n"
+        ".end\n");
+
+    Circuit circuit = parse_circuit(input);
+
+    EXPECT_EQ(circuit.nodes, 1);
+}
+
+TEST(CircuitNodeMappingTest, RepeatedNamesReuseExistingNodeNumbers) {
+    std::istringstream input(
+        "R1 in out 1k\n"
+        "R2 0 gnd 2k\n"
+        "R3 in 0 3k\n"
+        ".end\n");
+
+    Circuit circuit = parse_circuit(input);
+
+    EXPECT_EQ(circuit.nodes, 3);
+}
+
+TEST(CircuitNodeMappingTest, EverySupportedDevicePrefixContributesNodes) {
+    std::istringstream input(
+        "R1 nr 0 1k\n"
+        "V1 nv 0 5\n"
+        "I1 ni 0 1m\n"
+        "D1 nd 0\n"
+        ".end\n");
+
+    Circuit circuit = parse_circuit(input);
+
+    EXPECT_EQ(circuit.nodes, 5);
+}

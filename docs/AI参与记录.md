@@ -25,6 +25,7 @@
 | 2026-08-13 | `SpiceValueTest`（8 个用例，`tests/test_parser.cpp` 数值解析部分） | 测试设计 | ⬜ 未复盘 |
 | 2026-08-14 | `TokenizeTest`（6 个用例，续写进 `tests/test_parser.cpp`）+ `src/CMakeLists.txt` 挂载 | 测试设计 / 工程配置 | ⬜ 未复盘 |
 | 2026-08-20 | `CircuitParserTest`（4 个用例，`tests/test_parser.cpp` 语义层第 1 档） | 测试设计 | ⬜ 未复盘 |
+| 2026-08-20 | `CircuitNodeMappingTest`（3 个用例，`tests/test_parser.cpp` 语义层第 2 档） | 测试设计 | ⬜ 未复盘 |
 
 > **`lu_solve` 的归属要分清**：重排 + 前代 + 回代的**算法逻辑全部是你自己写的**，包括那个致命 bug 也是你自己
 > 按提示改对的 —— 这部分**不算 AI 代写，面试可以理直气壮说是自己实现的**。AI 只改了三处与算法无关的东西：
@@ -276,6 +277,19 @@ AI 另给过 `conductance_from` 的"文件局部辅助函数 + 初始化列表�
 | `EndStopsBeforeInvalidFollowingContent` | `.end` 必须立即停止；同时防止 `.end` 自己错误地设置 `Op` |
 | `RejectsOpArgumentsAndReportsLineNumber` | `.op` 参数数量校验及从 1 开始的真实网表行号 |
 | `RejectsEndArgumentsAndReportsLineNumber` | `.end` 必须先校验参数再退出，并报告真实行号 |
+
+---
+
+## 九、`CircuitNodeMappingTest` 测试组（2026-08-20）
+
+**位置**：`tests/test_parser.cpp` 的 3 个 `CircuitNodeMappingTest` 用例（AI 代写）；
+**节点映射及其与 `parse_circuit` 的集成由用户亲手编写**。
+
+| 用例 | 防什么 |
+|------|--------|
+| `ZeroAndGndShareTheGroundNode` | `0` / `gnd` 两个名称必须共用编号 0，不能按 map 键数量多算节点 |
+| `RepeatedNamesReuseExistingNodeNumbers` | `in/out/0/gnd/in` 的首次分配与重复复用，最终节点总数为 3 |
+| `EverySupportedDevicePrefixContributesNodes` | R/V/I/D 四种合法首字母都能触发两个端点的节点映射 |
 
 ---
 
