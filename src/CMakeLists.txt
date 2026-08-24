@@ -17,6 +17,8 @@ add_library(SpiceLib STATIC
     devices/VoltageSource.cpp
     devices/Diode.h
     devices/Diode.cpp
+    devices/Capacitor.h
+    devices/Capacitor.cpp
     solver/newton.h
     solver/newton.cpp
     parser/numeric.h

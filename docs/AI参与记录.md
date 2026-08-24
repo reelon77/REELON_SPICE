@@ -28,6 +28,7 @@
 | 2026-08-20 | `CircuitNodeMappingTest`（3 个用例，`tests/test_parser.cpp` 语义层第 2 档） | 测试设计 | ⬜ 未复盘 |
 | 2026-08-21 | `CircuitDeviceParsingTest`（5 个用例，`tests/test_parser.cpp` 语义层第 3 档） | 测试设计 | ⬜ 未复盘 |
 | 2026-08-21 | `ParserEndToEndTest`（2 个用例，`tests/test_end_to_end.cpp` 解析器第 4 档） | 测试设计 | ⬜ 未复盘 |
+| 2026-08-22 | `CapacitorConstructionTest` / `CapacitorDcTest` / `CapacitorTransientTest` / `TransientContextDispatchTest`（8 个用例，`tests/test_capacitor.cpp`）+ `tests/CMakeLists.txt` 注册；2026-08-25 按用户明确授权机械挂载 `src/CMakeLists.txt` | 测试设计 / 工程配置 | ⬜ 未复盘 |
 
 > **`lu_solve` 的归属要分清**：重排 + 前代 + 回代的**算法逻辑全部是你自己写的**，包括那个致命 bug 也是你自己
 > 按提示改对的 —— 这部分**不算 AI 代写，面试可以理直气壮说是自己实现的**。AI 只改了三处与算法无关的东西：
@@ -322,6 +323,36 @@ AI 另给过 `conductance_from` 的"文件局部辅助函数 + 初始化列表�
 | `DiodeNetlistConvergesToExpectedOperatingPoint` | D 行确实使用默认 `Is/Vt`并参与牛顿迭代，工作点收敛到 `v2=0.574191503V` |
 
 `borrow_devices` 只从 `Circuit` 借用 `Device*`，不转移所有权；两个测试执行期间 `Circuit` 始终存活。
+
+---
+
+## 十二、`Capacitor` 与 `TransientContext` 测试组（2026-08-22）
+
+**位置**：`tests/test_capacitor.cpp` 的 8 个用例（AI 代写）、`tests/CMakeLists.txt` 的测试注册，
+以及用户于 2026-08-25 明确授权后由 AI 完成的 `src/CMakeLists.txt` 机械挂载；
+**`TransientContext`、Device 接口扩展与 `Capacitor` 本体必须由用户亲手编写**。
+
+全部数值 oracle 独立来自后向欧拉：
+
+```text
+i_n = (C/dt)(v_n-v_prev)
+G_eq = C/dt
+I_hist = -G_eq*v_prev
+```
+
+其中主数值例固定取 `C=2F、dt=0.5s、v_prev=5V-2V=3V`，手算得到
+`G_eq=4S、I_hist=-12A、A=[[4,-4],[-4,4]]、b=[12,-12]`，不使用待测实现生成期望值。
+
+| 用例 | 防什么 |
+|------|--------|
+| `RejectsNonPositiveCapacitance` | `C<=0` 必须在构造期拒绝 |
+| `StampIsOpenCircuitAndPreservesExistingSystem` | DC 电容严格开路，且不得清除其他器件已经累加的 A/b |
+| `StampsFourPointConductanceAndHistorySourceFromPreviousSolution` | `G_eq/I_hist`、A 四点、b 两点、读取 `x_prev` 而非当前 Newton `x`，并守住历史只读 |
+| `GroundedNegativeTerminalLeavesOneDiagonalAndOneRhsEntry` | 接地跳过后的单对角元/单 RHS 落点与符号 |
+| `StampAccumulatesInsteadOfOverwriting` | stamp 必须使用 `+=`，重复盖章恰好翻倍 |
+| `RejectsNonPositiveTimeStep` | `dt<=0` 不得产生除零、负等效电导或静默错误 |
+| `LinearDeviceFallsBackToExistingStamp` | 新 context 虚接口默认转发，R/V/I 等线性器件旧路径不回归 |
+| `DiodeFallsBackToCurrentNewtonIterate` | context 默认转发仍虚分派到 Diode 双参版本，Diode 读取当前 `x` 而非历史 `x_prev` |
 
 ---
 
