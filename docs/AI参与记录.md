@@ -32,6 +32,7 @@
 | 2026-08-25 | `NewtonInitialGuessTest`（2 个用例，`tests/test_newton.cpp` 瞬态第 2A 档） | 测试设计 | ⬜ 未复盘 |
 | 2026-08-25 | `NewtonTransientContextTest` + 测试专用 `RecordingTransientDevice`（`tests/test_newton.cpp` 瞬态第 2B 档） | 测试设计 | ⬜ 未复盘 |
 | 2026-08-25 | `NewtonTransientStepTest`（1 个用例，`tests/test_newton.cpp` 瞬态第 2C 档） | 测试设计 | ⬜ 未复盘 |
+| 2026-08-25 | `TransientTrajectoryTest` / `TransientValidationTest` / `TransientHistoryTest` / `TransientRcTest` / `TransientFailureTest`（7 个用例，`tests/test_transient.cpp` 瞬态第 3 档）+ `tests/CMakeLists.txt` 注册 | 测试设计 / 工程配置 | ⬜ 未复盘 |
 
 > **`lu_solve` 的归属要分清**：重排 + 前代 + 回代的**算法逻辑全部是你自己写的**，包括那个致命 bug 也是你自己
 > 按提示改对的 —— 这部分**不算 AI 代写，面试可以理直气壮说是自己实现的**。AI 只改了三处与算法无关的东西：
@@ -393,6 +394,28 @@ I_hist = -G_eq*v_prev
 
 因此第一步必须得到 `v2=1/11V`；同时核对电源节点 `v1=1V`、电压源支路电流
 `iV1=-(1-v2)=-10/11A`，并确认调用结束后输入历史 `x_prev` 仍为全零。
+
+---
+
+## 十五、瞬态时间轨迹与 RC 验收测试（2026-08-25）
+
+**位置**：`tests/test_transient.cpp` 的 7 个用例（AI 代写）及 `tests/CMakeLists.txt` 注册；
+**`TransientPoint`、`transient_solve` 与时间步进实现必须由用户亲手编写**。
+
+已锁定的接口语义：轨迹包含 `t=0` 初始解；`t_step>0`、`t_stop>=0`、初始解维度正确；
+令 `q=t_stop/t_step`，仅当 `|q-round(q)|<=1e-12` 时接受固定时间网格，随后使用整数步号生成时间。
+
+| 用例 | 独立 oracle 与防护目标 |
+|------|------------------------|
+| `ZeroStopReturnsOnlyInitialPoint` | `t_stop=0` 时只有 `{0, initial_x}`，且不得调用 Newton/stamp |
+| `RejectsInvalidArguments` | 拒绝非正步长、负停止时间和错误初值维度；维度检查不能依赖进入 Newton |
+| `AppliesOneEminus12RatioTolerance` | 商距整数 `5e-13` 时接受、`2e-12` 时拒绝，并拒绝明确非整数倍 `0.25/0.1` |
+| `AdvancesHistoryOnlyAfterStepConverges` | 测试方程 `x_n=x_{n-1}+1` 每步两轮收敛；轨迹为 `[0,1,2]`，stamp 所见历史为 `[0,0,1,1]` |
+| `TrajectoryMatchesBackwardEulerClosedForm` | `Vs=R=C=1、dt=0.1` 时 `v_n=1-(10/11)^n`；同时检查首步 `1/11`、单调上升且不超过 `1V` |
+| `SmallerStepApproachesExactRcSolution` | 固定 `t=1`，分别对拍 `dt=0.2/0.1` 的后向欧拉闭式值，并验证细步长更接近 `1-e^-1` |
+| `PropagatesNewtonFailureInsteadOfReturningPartialTrajectory` | 第一步收敛、第二步在 `max_iter=1` 下失败时必须向外抛异常，不得返回第一步的部分轨迹 |
+
+本档不覆盖字符串时间、parser/`.tran`、末步缩短、变步长、梯形法、时变源、CSV/CLI、ngspice 或可视化。
 
 ---
 

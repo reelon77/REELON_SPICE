@@ -45,3 +45,7 @@ gtest_discover_tests(test_end_to_end)
 add_executable(test_capacitor test_capacitor.cpp)
 target_link_libraries(test_capacitor PRIVATE SpiceLib GTest::gtest_main)
 gtest_discover_tests(test_capacitor)
+
+add_executable(test_transient test_transient.cpp)
+target_link_libraries(test_transient PRIVATE SpiceLib GTest::gtest_main)
+gtest_discover_tests(test_transient)

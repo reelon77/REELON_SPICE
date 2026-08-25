@@ -27,6 +27,8 @@ add_library(SpiceLib STATIC
     parser/tokenize.cpp
     parser/Circuit.h
     parser/Circuit.cpp
+    solver/transient.h
+    solver/transient.cpp
 )
 
 target_include_directories(SpiceLib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
