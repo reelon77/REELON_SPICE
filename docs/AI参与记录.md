@@ -29,6 +29,9 @@
 | 2026-08-21 | `CircuitDeviceParsingTest`（5 个用例，`tests/test_parser.cpp` 语义层第 3 档） | 测试设计 | ⬜ 未复盘 |
 | 2026-08-21 | `ParserEndToEndTest`（2 个用例，`tests/test_end_to_end.cpp` 解析器第 4 档） | 测试设计 | ⬜ 未复盘 |
 | 2026-08-22 | `CapacitorConstructionTest` / `CapacitorDcTest` / `CapacitorTransientTest` / `TransientContextDispatchTest`（8 个用例，`tests/test_capacitor.cpp`）+ `tests/CMakeLists.txt` 注册；2026-08-25 按用户明确授权机械挂载 `src/CMakeLists.txt` | 测试设计 / 工程配置 | ⬜ 未复盘 |
+| 2026-08-25 | `NewtonInitialGuessTest`（2 个用例，`tests/test_newton.cpp` 瞬态第 2A 档） | 测试设计 | ⬜ 未复盘 |
+| 2026-08-25 | `NewtonTransientContextTest` + 测试专用 `RecordingTransientDevice`（`tests/test_newton.cpp` 瞬态第 2B 档） | 测试设计 | ⬜ 未复盘 |
+| 2026-08-25 | `NewtonTransientStepTest`（1 个用例，`tests/test_newton.cpp` 瞬态第 2C 档） | 测试设计 | ⬜ 未复盘 |
 
 > **`lu_solve` 的归属要分清**：重排 + 前代 + 回代的**算法逻辑全部是你自己写的**，包括那个致命 bug 也是你自己
 > 按提示改对的 —— 这部分**不算 AI 代写，面试可以理直气壮说是自己实现的**。AI 只改了三处与算法无关的东西：
@@ -353,6 +356,43 @@ I_hist = -G_eq*v_prev
 | `RejectsNonPositiveTimeStep` | `dt<=0` 不得产生除零、负等效电导或静默错误 |
 | `LinearDeviceFallsBackToExistingStamp` | 新 context 虚接口默认转发，R/V/I 等线性器件旧路径不回归 |
 | `DiodeFallsBackToCurrentNewtonIterate` | context 默认转发仍虚分派到 Diode 双参版本，Diode 读取当前 `x` 而非历史 `x_prev` |
+
+---
+
+## 十三、Newton 显式初值测试组（2026-08-25）
+
+**位置**：`tests/test_newton.cpp` 的 2 个 `NewtonInitialGuessTest` 用例（AI 代写）；
+**Newton 初值接口与实现必须由用户亲手编写**。
+
+| 用例 | 独立 oracle 与防护目标 |
+|------|------------------------|
+| `ExactSolutionAsInitialGuessConvergesInOneIteration` | 分压电路手算真解为 `{10V, 8V, -2mA}`；线性方程每轮相同，真解作初值时第一轮 `diff=0`，因此应恰好 1 轮收敛。防止新重载仍偷偷从全零开始 |
+| `RejectsInitialGuessWithWrongDimension` | `sys.dim()=3` 而初值只有 2 项，必须在 Newton 入口抛 `invalid_argument`，防止范数比较越界读取 |
+
+旧 DC 重载的源码兼容和默认全零行为继续由已有 `NewtonSmokeTest`、`NewtonEndToEndTest` 与全仓回归守护。
+
+第 2B 的 `NewtonTransientContextTest.ReusesFrozenContextAcrossEveryIteration` 使用测试专用线性器件
+`A=1、b=x_prev+1`。取 `x_prev=7` 时，每轮独立方程均为 `x=8`：第一轮从初值 7 得到 8，
+第二轮仍得到 8 并以 `diff=0` 收敛。该器件同时记录 context 地址、历史底层地址和值，验证 Newton
+每轮传入同一份未变化的 context；其 DC stamp 故意抛异常，防止瞬态入口误走旧双参/单参路径。
+
+---
+
+## 十四、Newton 瞬态 RC 单步测试（2026-08-25）
+
+**位置**：`tests/test_newton.cpp` 的
+`NewtonTransientStepTest.BackwardEulerRcFirstStepMatchesHandCalculation`（AI 代写）；
+**Newton、器件和瞬态 stamp 实现均由用户亲手编写**。
+
+独立手算 oracle 取 `Vs=1V、R=1Ω、C=1F、dt=0.1s、vC(0)=0`。节点 2 的后向欧拉 KCL 为：
+
+```text
+(v2 - 1)/1 + (1/0.1)(v2 - 0) = 0
+11 v2 = 1
+```
+
+因此第一步必须得到 `v2=1/11V`；同时核对电源节点 `v1=1V`、电压源支路电流
+`iV1=-(1-v2)=-10/11A`，并确认调用结束后输入历史 `x_prev` 仍为全零。
 
 ---
 
