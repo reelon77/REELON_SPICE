@@ -9,8 +9,10 @@
 #include "parser/Circuit.h"
 #include "parser/numeric.h"
 #include "parser/tokenize.h"
+#include "devices/Capacitor.h"
 #include "devices/CurrentSource.h"
 #include "devices/Diode.h"
+#include "devices/Inductor.h"
 #include "devices/Resistor.h"
 #include "devices/VoltageSource.h"
 #include <cmath>
@@ -137,7 +139,7 @@ TEST(CircuitParserTest, ParsesOpWhileSkippingBlankAndCommentLines) {
     EXPECT_EQ(circuit.analysis_type, AnalysisType::Op);
     EXPECT_TRUE(circuit.devices.empty());
     EXPECT_EQ(circuit.nodes, 1);
-    EXPECT_EQ(circuit.num_voltage_sources, 0);
+    EXPECT_EQ(circuit.num_branch_unknowns, 0);
 }
 
 TEST(CircuitParserTest, EndStopsBeforeInvalidFollowingContent) {
@@ -214,11 +216,13 @@ TEST(CircuitNodeMappingTest, EverySupportedDevicePrefixContributesNodes) {
         "V1 nv 0 5\n"
         "I1 ni 0 1m\n"
         "D1 nd 0\n"
+        "C1 nc 0 1u\n"
+        "L1 nl 0 1m\n"
         ".end\n");
 
     Circuit circuit = parse_circuit(input);
 
-    EXPECT_EQ(circuit.nodes, 5);
+    EXPECT_EQ(circuit.nodes, 7);
 }
 
 // ---------- 解析器语义层第 3 档:器件行语义 ----------
@@ -228,7 +232,8 @@ namespace {
 
 void expect_parse_error_contains(
     const std::string& netlist,
-    const std::vector<std::string>& expected_fragments) {
+    const std::vector<std::string>& expected_fragments,
+    const std::vector<std::string>& forbidden_fragments = {}) {
     std::istringstream input(netlist);
     try {
         (void)parse_circuit(input);
@@ -238,6 +243,10 @@ void expect_parse_error_contains(
         for (const std::string& fragment : expected_fragments) {
             EXPECT_NE(message.find(fragment), std::string::npos)
                 << "错误消息缺少片段 \"" << fragment << "\": " << message;
+        }
+        for (const std::string& fragment : forbidden_fragments) {
+            EXPECT_EQ(message.find(fragment), std::string::npos)
+                << "错误路径仍落入未知 token 兜底: " << message;
         }
     }
 }
@@ -250,18 +259,22 @@ TEST(CircuitDeviceParsingTest, CreatesEverySupportedDeviceInNetlistOrder) {
         "V1 nv 0 5\n"
         "I1 ni 0 1m\n"
         "D1 nd 0\n"
+        "C1 nc 0 1u\n"
+        "L1 nl 0 1m\n"
         ".op\n"
         ".end\n");
 
     Circuit circuit = parse_circuit(input);
 
-    ASSERT_EQ(circuit.devices.size(), 4u);
+    ASSERT_EQ(circuit.devices.size(), 6u);
     EXPECT_NE(dynamic_cast<Resistor*>(circuit.devices[0].get()), nullptr);
     EXPECT_NE(dynamic_cast<VoltageSource*>(circuit.devices[1].get()), nullptr);
     EXPECT_NE(dynamic_cast<CurrentSource*>(circuit.devices[2].get()), nullptr);
     EXPECT_NE(dynamic_cast<Diode*>(circuit.devices[3].get()), nullptr);
-    EXPECT_EQ(circuit.nodes, 5);
-    EXPECT_EQ(circuit.num_voltage_sources, 1);
+    EXPECT_NE(dynamic_cast<Capacitor*>(circuit.devices[4].get()), nullptr);
+    EXPECT_NE(dynamic_cast<Inductor*>(circuit.devices[5].get()), nullptr);
+    EXPECT_EQ(circuit.nodes, 7);
+    EXPECT_EQ(circuit.num_branch_unknowns, 2);
     EXPECT_EQ(circuit.analysis_type, AnalysisType::Op);
 }
 
@@ -283,11 +296,13 @@ TEST(CircuitDeviceParsingTest, RejectsWrongTokenCountForEveryDeviceKind) {
         "V1 1 0 5 extra\n",
         "I1 1 0\n",
         "D1 1 0 model\n",
+        "C1 1 0\n",
+        "L1 1 0 1m extra\n",
     };
 
     for (const std::string& line : malformed_lines) {
         SCOPED_TRACE(line);
-        expect_parse_error_contains(line, {"1:"});
+        expect_parse_error_contains(line, {"1:"}, {"undefined token"});
     }
 }
 
@@ -296,10 +311,100 @@ TEST(CircuitDeviceParsingTest, RejectsInvalidNumericValueWithLineAndToken) {
         "R1 1 0 invalid\n",
         "V1 1 0 invalid\n",
         "I1 1 0 invalid\n",
+        "C1 1 0 invalid\n",
+        "L1 1 0 invalid\n",
     };
 
     for (const std::string& line : invalid_numeric_lines) {
         SCOPED_TRACE(line);
-        expect_parse_error_contains(line, {"1:", "invalid"});
+        expect_parse_error_contains(
+            line,
+            {"1:", "invalid"},
+            {"undefined token"});
+    }
+}
+
+// ---------- 瞬态第 5 档:C/L/.tran 语义 ----------
+// 本组测试由 AI 代写；Circuit/parser 实现由用户亲手编写。
+
+TEST(CircuitTransientParsingTest, ParsesCapacitorInductorAndTranCaseInsensitively) {
+    std::istringstream input(
+        "cStore cnode 0 500M\n"
+        "LStore lnode 0 500M\n"
+        "vDrive vnode 0 2\n"
+        ".TrAn 250M 500M\n"
+        ".EnD\n");
+
+    Circuit circuit = parse_circuit(input);
+
+    ASSERT_EQ(circuit.devices.size(), 3u);
+    EXPECT_NE(dynamic_cast<Capacitor*>(circuit.devices[0].get()), nullptr);
+    EXPECT_NE(dynamic_cast<Inductor*>(circuit.devices[1].get()), nullptr);
+    EXPECT_NE(dynamic_cast<VoltageSource*>(circuit.devices[2].get()), nullptr);
+    EXPECT_EQ(circuit.nodes, 4);
+    EXPECT_EQ(circuit.num_branch_unknowns, 2)
+        << "C 不扩维，L/V 按出现顺序共享同一个支路编号池";
+    EXPECT_EQ(circuit.analysis_type, AnalysisType::Tran);
+    EXPECT_DOUBLE_EQ(circuit.t_step, 0.25);
+    EXPECT_DOUBLE_EQ(circuit.t_stop, 0.5);
+}
+
+TEST(CircuitTransientParsingTest, RejectsWrongTranTokenCountWithLineNumber) {
+    const std::vector<std::string> malformed_lines{
+        ".tran 0.1\n",
+        ".tran 0.1 1.0 extra\n",
+    };
+
+    for (const std::string& line : malformed_lines) {
+        SCOPED_TRACE(line);
+        expect_parse_error_contains(
+            line,
+            {"1:", ".tran"},
+            {"undefined token"});
+    }
+}
+
+TEST(CircuitTransientParsingTest, RejectsInvalidTranNumericValuesWithLineAndToken) {
+    const std::vector<std::string> malformed_lines{
+        ".tran bad 1.0\n",
+        ".tran 0.1 bad\n",
+    };
+
+    for (const std::string& line : malformed_lines) {
+        SCOPED_TRACE(line);
+        expect_parse_error_contains(
+            line,
+            {"1:", "bad"},
+            {"undefined token"});
+    }
+}
+
+TEST(CircuitTransientParsingTest, RejectsNonPositiveCapacitanceAndInductanceWithLineNumber) {
+    const std::vector<std::string> malformed_lines{
+        "C1 1 0 0\n",
+        "C1 1 0 -1\n",
+        "L1 1 0 0\n",
+        "L1 1 0 -1\n",
+    };
+
+    for (const std::string& line : malformed_lines) {
+        SCOPED_TRACE(line);
+        expect_parse_error_contains(line, {"1:"}, {"undefined token"});
+    }
+}
+
+// parser 的网表语义比底层 transient_solve 更严格：一条 .tran 指令必须真正向前推进时间，
+// 因而 step/stop 都要求正值；底层 API 的 t_stop=0 单点轨迹能力继续由原测试保留。
+TEST(CircuitTransientParsingTest, RejectsNonPositiveTranParametersWithLineNumber) {
+    const std::vector<std::string> malformed_lines{
+        ".tran 0 1\n",
+        ".tran -0.1 1\n",
+        ".tran 0.1 0\n",
+        ".tran 0.1 -1\n",
+    };
+
+    for (const std::string& line : malformed_lines) {
+        SCOPED_TRACE(line);
+        expect_parse_error_contains(line, {"1:"}, {"undefined token"});
     }
 }

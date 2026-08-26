@@ -1,6 +1,8 @@
 #include "Circuit.h"
 #include "devices/VoltageSource.h"
 #include "devices/CurrentSource.h"
+#include "devices/Capacitor.h"
+#include "devices/Inductor.h"
 #include "devices/Diode.h"
 #include "tokenize.h"
 #include "numeric.h"
@@ -90,9 +92,9 @@ Circuit parse_circuit(std::istream& input) {
                 double voltage = parse_value(tokens[3]);
                 int node_pos = get_or_create_node(tokens[1]);
                 int node_neg = get_or_create_node(tokens[2]);
-                int sourceIndex = circuit.num_voltage_sources;
+                int sourceIndex = circuit.num_branch_unknowns;
                 circuit.devices.push_back(std::make_unique<VoltageSource>(voltage, node_pos, node_neg, sourceIndex));
-                circuit.num_voltage_sources++;
+                circuit.num_branch_unknowns++;
                 continue;
             } else {
                 std::stringstream e;
@@ -126,6 +128,59 @@ Circuit parse_circuit(std::istream& input) {
                 e << line_number << ": " << "the number of tokens is incorrect!";
                 throw std::runtime_error(e.str());
             }
+        }
+        if (tokens[0][0] == 'c') {
+            if (tokens.size() != 4) {
+                std::stringstream e;
+                e << line_number << ": The number of parameters must be equal to 4!";
+                throw std::runtime_error(e.str());
+            }
+            double capacity = parse_value(tokens[3]);
+            if (capacity <= 0) {
+                std::stringstream e;
+                e << line_number << ": The capacity value must be positive!";
+                throw std::runtime_error(e.str());
+            }
+            int node_pos = get_or_create_node(tokens[1]);
+            int node_neg = get_or_create_node(tokens[2]);
+            circuit.devices.push_back(std::make_unique<Capacitor>(capacity, node_pos, node_neg));
+            continue;
+        }
+        if (tokens[0][0] == 'l') {
+            if (tokens.size() != 4) {
+                std::stringstream e;
+                e << line_number << ": The number of parameters must be equal to 4!";
+                throw std::runtime_error(e.str());
+            }
+            double L = parse_value(tokens[3]);
+            if (L <= 0) {
+                std::stringstream e;
+                e << line_number << ": The L value must be positive!";
+                throw std::runtime_error(e.str());
+            }
+            int node_pos = get_or_create_node(tokens[1]);
+            int node_neg = get_or_create_node(tokens[2]);
+            circuit.devices.push_back(std::make_unique<Inductor>(L, node_pos, node_neg, circuit.num_branch_unknowns));
+            circuit.num_branch_unknowns++;
+            continue;
+        }
+        if (tokens[0] == ".tran") {
+            if (tokens.size() != 3) {
+                std::stringstream e;
+                e << line_number << ": The parameters in .tran command must be equal to 3!";
+                throw std::runtime_error(e.str());
+            }
+            double t_step = parse_value(tokens[1]);
+            double t_stop = parse_value(tokens[2]);
+            if (t_step <= 0 || t_stop <= 0) {
+                std::stringstream e;
+                e << line_number << ": The t_step and t_stop value must be positive!";
+                throw std::runtime_error(e.str());
+            }
+            circuit.t_step = t_step;
+            circuit.t_stop = t_stop;
+            circuit.analysis_type = AnalysisType::Tran;
+            continue;
         }
 
         std::stringstream e;

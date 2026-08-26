@@ -34,6 +34,7 @@
 | 2026-08-25 | `NewtonTransientStepTest`（1 个用例，`tests/test_newton.cpp` 瞬态第 2C 档） | 测试设计 | ⬜ 未复盘 |
 | 2026-08-25 | `TransientTrajectoryTest` / `TransientValidationTest` / `TransientHistoryTest` / `TransientRcTest` / `TransientFailureTest`（7 个用例，`tests/test_transient.cpp` 瞬态第 3 档）+ `tests/CMakeLists.txt` 注册 | 测试设计 / 工程配置 | ⬜ 未复盘 |
 | 2026-08-26 | `InductorConstructionTest` / `InductorDcTest` / `InductorTransientTest` / `InductorTrajectoryTest`（7 个用例，`tests/test_inductor.cpp` 瞬态第 4 档）+ `tests/CMakeLists.txt` 注册 | 测试设计 / 工程配置 | ⬜ 未复盘 |
+| 2026-08-26 | `CircuitTransientParsingTest`（5 个用例）+ `ParserTransientEndToEndTest`（2 个用例）；扩展 4 个旧 parser 测试覆盖 C/L 节点、类型、token/数值错误，并迁移旧 parser/DC 测试的通用支路计数字段 | 测试设计 | ⬜ 未复盘 |
 
 > **`lu_solve` 的归属要分清**：重排 + 前代 + 回代的**算法逻辑全部是你自己写的**，包括那个致命 bug 也是你自己
 > 按提示改对的 —— 这部分**不算 AI 代写，面试可以理直气壮说是自己实现的**。AI 只改了三处与算法无关的东西：
@@ -449,6 +450,46 @@ iV_n = -i_n
 
 轨迹解向量固定为 `[v1,v2,iV,iL]`，因此还同时守护电压源与电感共享全局支路编号空间。
 本档不接入 `Circuit`/parser/`.tran`，也不涉及梯形法、变步长、时变源、输出或可视化。
+
+---
+
+## 十七、`C/L/.tran` parser 与瞬态端到端测试（2026-08-26）
+
+**位置**：`tests/test_parser.cpp` 新增 5 个 `CircuitTransientParsingTest`、
+`tests/test_end_to_end.cpp` 新增 2 个 `ParserTransientEndToEndTest`；同时扩展既有的
+`EverySupportedDevicePrefixContributesNodes`、`CreatesEverySupportedDeviceInNetlistOrder`、
+`RejectsWrongTokenCountForEveryDeviceKind`、`RejectsInvalidNumericValueWithLineAndToken` 来覆盖 C/L，
+并机械迁移旧 parser/DC 测试中的通用支路计数字段；
+**`Circuit` 接口、C/L/.tran 解析和错误处理必须由用户亲手编写**。
+
+parser 契约覆盖：C/L 各恰好 4 个 token、`.tran t_step t_stop` 恰好 3 个 token、
+大小写不敏感、数值复用倍率后缀、非法数值保留行号和 token、非正 C/L 与非正时间参数保留行号。
+V/L 按网表出现顺序共用 `num_branch_unknowns`，C 不增加支路未知量。RL 网表故意把 L 写在 V 前，
+防止两类器件各自从 0 编号后碰撞。
+
+RC 数值 oracle 独立取：
+
+```text
+Vs=2V, R=2ohm, C=0.5F, dt=0.25s
+beta=RC/(RC+dt)=0.8
+vC1=0.4V, vC2=0.72V
+iV1=-0.8A, iV2=-0.64A
+```
+
+RL 数值 oracle 独立取：
+
+```text
+Vs=2V, R=2ohm, L=0.5H, dt=0.25s
+beta=L/(L+R*dt)=0.5, Iinf=Vs/R=1A
+iL1=0.5A, iL2=0.75A
+vL1=1V, vL2=0.5V, iV=-iL
+```
+
+两条 parsed 轨迹还逐项对拍等参数的手工构造电路；手工构造结果只验证 parser 等价性，
+上述独立手算值才是数值正确性的 oracle，统一容差为 `1e-12`。
+
+本档不覆盖梯形法、变步长、时变源、`.ic/UIC`、分析指令冲突、CLI/CSV、ngspice、CSR 或可视化；
+时间网格整数倍规则继续由 `transient_solve` 独立负责，不在 parser 重复实现。
 
 ---
 

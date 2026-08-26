@@ -8,14 +8,17 @@
 
 enum class AnalysisType {
     None,
+    Tran,
     Op,
 };
 
 struct Circuit {
     std::vector<std::unique_ptr<Device>> devices;
     int nodes = 1;  // 包含地节点
-    int num_voltage_sources = 0;    // 电压源编号由解析顺序决定，按网表中 V 器件的出现顺序、从 0 开始
+    int num_branch_unknowns = 0;    // 每个 V/L 各占一个支路未知量，按网表出现顺序共同编号
     AnalysisType analysis_type = AnalysisType::None;
+    double t_step = 0.0;
+    double t_stop = 0.0;
 };
 
 Circuit parse_circuit(std::istream& input);
