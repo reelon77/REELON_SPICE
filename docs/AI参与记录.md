@@ -33,6 +33,7 @@
 | 2026-08-25 | `NewtonTransientContextTest` + 测试专用 `RecordingTransientDevice`（`tests/test_newton.cpp` 瞬态第 2B 档） | 测试设计 | ⬜ 未复盘 |
 | 2026-08-25 | `NewtonTransientStepTest`（1 个用例，`tests/test_newton.cpp` 瞬态第 2C 档） | 测试设计 | ⬜ 未复盘 |
 | 2026-08-25 | `TransientTrajectoryTest` / `TransientValidationTest` / `TransientHistoryTest` / `TransientRcTest` / `TransientFailureTest`（7 个用例，`tests/test_transient.cpp` 瞬态第 3 档）+ `tests/CMakeLists.txt` 注册 | 测试设计 / 工程配置 | ⬜ 未复盘 |
+| 2026-08-26 | `InductorConstructionTest` / `InductorDcTest` / `InductorTransientTest` / `InductorTrajectoryTest`（7 个用例，`tests/test_inductor.cpp` 瞬态第 4 档）+ `tests/CMakeLists.txt` 注册 | 测试设计 / 工程配置 | ⬜ 未复盘 |
 
 > **`lu_solve` 的归属要分清**：重排 + 前代 + 回代的**算法逻辑全部是你自己写的**，包括那个致命 bug 也是你自己
 > 按提示改对的 —— 这部分**不算 AI 代写，面试可以理直气壮说是自己实现的**。AI 只改了三处与算法无关的东西：
@@ -416,6 +417,38 @@ I_hist = -G_eq*v_prev
 | `PropagatesNewtonFailureInsteadOfReturningPartialTrajectory` | 第一步收敛、第二步在 `max_iter=1` 下失败时必须向外抛异常，不得返回第一步的部分轨迹 |
 
 本档不覆盖字符串时间、parser/`.tran`、末步缩短、变步长、梯形法、时变源、CSV/CLI、ngspice 或可视化。
+
+---
+
+## 十六、电感 MNA 支路未知量与 RL 轨迹测试（2026-08-26）
+
+**位置**：`tests/test_inductor.cpp` 的 7 个用例（AI 代写）及 `tests/CMakeLists.txt` 注册；
+**`Inductor`、MNA 支路计数语义与瞬态核心实现必须由用户亲手编写**。
+
+已锁定电感电流正方向为 `p -> q`。后向欧拉的独立方程为：
+
+```text
+v_p - v_q - (L/dt)i_n = -(L/dt)i_prev
+```
+
+若 `k` 是电感电流的全局 MNA 下标，则瞬态 stamp 的五个矩阵落点和一个 RHS 落点为：
+`A(p,k)+=1`、`A(q,k)-=1`、`A(k,p)+=1`、`A(k,q)-=1`、
+`A(k,k)-=L/dt`、`b(k)-=(L/dt)i_prev`。DC 时只保留前四项，精确表达 `v_p-v_q=0`。
+
+主数值例固定取 `L=2H、dt=0.5s、i_prev=3A`，手算得到 `L/dt=4ohm`、
+`b(k)=-12V`；另用 `i_prev=-2A` 的接地例独立检查 RHS 正号，并用重复盖章检查所有贡献均为累加。
+
+单位串联 RL 轨迹取 `Vs=R=L=1、dt=0.1、i_0=0`。独立后向欧拉闭式 oracle 为：
+
+```text
+i_n = 1 - (10/11)^n
+v1_n = 1
+v2_n = 1 - i_n
+iV_n = -i_n
+```
+
+轨迹解向量固定为 `[v1,v2,iV,iL]`，因此还同时守护电压源与电感共享全局支路编号空间。
+本档不接入 `Circuit`/parser/`.tran`，也不涉及梯形法、变步长、时变源、输出或可视化。
 
 ---
 

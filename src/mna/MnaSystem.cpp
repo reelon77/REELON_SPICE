@@ -1,11 +1,11 @@
 #include "MnaSystem.h"
 #include <algorithm>
 
-MnaSystem::MnaSystem(int nodes, int voltageSources) : 
-    A_(nodes - 1 + voltageSources),
-    b_(nodes - 1 + voltageSources, 0.0),
+MnaSystem::MnaSystem(int nodes, int branchUnknowns) : 
+    A_(nodes - 1 + branchUnknowns),
+    b_(nodes - 1 + branchUnknowns, 0.0),
     nodes_voltages_(nodes - 1),
-    voltageSources_(voltageSources) 
+    branchUnknowns_(branchUnknowns) 
     {}
 
 void MnaSystem::add_to_A(int node_i, int node_j, double val) {
@@ -22,8 +22,8 @@ void MnaSystem::add_to_b(int node_i, double val) {
     add_to_b_raw(node_i - 1, val);
 }
 
-int MnaSystem::branch_index(int voltageSource_i) const {
-    return nodes_voltages_ + voltageSource_i;
+int MnaSystem::branch_index(int branchIndex) const {
+    return nodes_voltages_ + branchIndex;
 }
 
 void MnaSystem::add_to_A_raw(int row, int col, double val) {
@@ -48,5 +48,5 @@ void MnaSystem::clear() {
 }
 
 int MnaSystem::dim() const {
-    return nodes_voltages_ + voltageSources_;
+    return nodes_voltages_ + branchUnknowns_;
 }
