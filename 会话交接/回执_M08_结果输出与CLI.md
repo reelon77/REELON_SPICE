@@ -459,3 +459,18 @@ python3 scripts/plot_transient.py build/rc.csv --validate-only
 ```
 
 实现范围之外没有隐藏改动；M08 停车场和下游任务均未启动。
+
+## 十四、主会话正式验收（2026-08-30）
+
+主会话以 `4d11881 docs: add M08 implementation handoff inventory` 为验收基线，独立复验并确认：
+
+- `git fetch origin --prune` 成功；`main` 与最新 `origin/main` 均指向 `4d11881`，ahead/behind 为 `0/0`。
+- 工作区干净，`git diff --check` 通过。
+- `cmake --build ./build` 构建通过，全仓 **152/152** 全绿。
+- `.op` 分压示例实跑得到 `V(1)=10`、`V(2)=8`、`I(v1)≈-2mA`。
+- RC/RL 示例均通过真实 CLI 写出 CSV；时间、节点列和 L/V branch 顺序与回执一致。
+- `python3 scripts/plot_transient.py <csv> --validate-only` 实跑成功。
+- 当前机器可用 Python 3.9.6，但没有 matplotlib，也没有命令行可见的 MATLAB/Octave；图片渲染未实跑属于任务单已允许并如实记录的依赖分支。
+- 从 `578f370` 到 `4d11881` 的功能、测试、文档和 AI/用户归属清单与仓库差异一致。
+
+主会话结论：**`TS-M08-OUTPUT` 正式验收通过并销项。**CSV 是与绘图语言无关的稳定波形数据接口；最终以 Python、MATLAB 或双轨作为官方绘图消费者，留待用户完成选型后由主会话安排，不反向影响 M08 的 parser/controller/CLI/CSV 验收。
