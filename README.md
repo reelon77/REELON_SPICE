@@ -42,6 +42,10 @@ CSV 第一列固定为 `time`（秒），之后依次是 `V(node)` 和 `I(branch
 
 ## 绘制瞬态波形
 
+CSV 是稳定的数据交换格式。Python 工具作为自动校验和跨平台绘图入口；MATLAB 工具作为交互分析伴侣，两者读取同一份 CSV。
+
+### Python
+
 脚本需要 Python 3。实际绘图还需要 matplotlib：
 
 ```bash
@@ -67,6 +71,26 @@ python3 scripts/plot_transient.py build/rc.csv --validate-only
 ```
 
 省略 `-o` 会打开交互式窗口。脚本会明确报告文件不存在、缺少 `time`、列名不存在以及选中列含非数值等错误；未指定列时检查并绘制全部非 `time` 列。
+
+### MATLAB
+
+MATLAB R2020a 或更新版本可直接保留 `V(out)`、`I(v1)` 这类 CSV 表头并导出图片。在项目根目录执行：
+
+```matlab
+addpath("scripts");
+
+% 交互显示全部波形
+plot_transient("build/rc.csv");
+
+% 只显示指定列
+plot_transient("build/rc.csv", "V(out)");
+
+% 选择多列并保存图片
+plot_transient("build/rc.csv", ["V(out)", "I(v1)"], ...
+    "build/rc-matlab.png");
+```
+
+若要保存全部波形，可把第二个参数写成 `[]`。MATLAB 工具同样会检查文件、`time` 列、波形列、空数据以及非数值或非有限值。当前仓库环境没有 MATLAB/Octave，因此该 `.m` 文件已做静态审阅，但运行验证需要在装有 MATLAB 的机器上执行。
 
 ## 当前网表语法
 

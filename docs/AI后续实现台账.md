@@ -2,7 +2,7 @@
 
 > 建立日期：2026-08-30
 > 起算基线：`4d11881 docs: add M08 implementation handoff inventory`
-> 状态：启用；波形绘图官方路线等待用户选择 Python / MATLAB / 双轨
+> 状态：启用；波形绘图采用 Python 自动化 + MATLAB 交互分析双路线
 
 ## 一、用途
 
@@ -107,14 +107,26 @@ AI 设计/实现范围：
 
 主要内容提交：`3e15882 docs: accept M08 and establish AI implementation ledger`；本行由随后纯文档提交回填。
 
-## 六、待用户决定
+### `AI-0002`：MATLAB 瞬态波形伴侣
 
-### 波形绘图官方消费者
+> 日期：2026-08-30
+> Task ID：`TS-M08-WAVEFORM-COMPANION`
+> 类型：M08 后续工具增强
 
-CSV 已作为稳定波形数据格式完成，不依赖 Python 或 MATLAB。当前待决定的是官方绘图脚本：
+- 目标与范围：保持 M08 CSV 契约及 Python 工具不变，新增 MATLAB 交互绘图入口；不扩展 `.dc`、求解器或 `src/`。
+- AI 设计决策：CSV 继续作为唯一稳定交换格式；Python 负责自动验证、CI 友好和跨平台入口，MATLAB 负责学校环境下的交互分析。两个消费者互不依赖。
+- AI 生产/工具代码：新建 `scripts/plot_transient.m`，支持全列/选列、交互显示/文件导出，并校验文件、`time`、列名、空数据、实数数值和有限值。
+- AI 文档：修改 `README.md`、本台账及 `项目梳理与开发计划.md`，锁定双路线职责与调用方式。
+- AI 测试/CMake：未新增或修改；当前环境没有 MATLAB/Octave，不虚构运行测试，也不把不可运行的 MATLAB 用例挂入 CTest。
+- 明确未修改：全部 `src/`、CLI、CSV writer、Python 工具及既有测试。
+- 验证：重新构建成功；全仓 152/152；真实 RC CSV 经 Python `--validate-only` 验证成功（3 行，`time/V(in)/V(out)/I(v1)`）；MATLAB 文件完成静态审阅。当前环境没有 MATLAB/Octave，MATLAB 实机运行状态为“未验证”。
+- 提交：本次阶段提交（提交后由纯文档提交回填 hash）。
+- 用户复核点：在学校 MATLAB 中依次执行 README 的全列、选列和保存图片示例；若 MATLAB 报版本兼容问题，再根据实际版本做最小兼容调整。
 
-- Python + matplotlib；
-- MATLAB `.m`；
-- Python 为主、MATLAB 为可选示例。
+## 六、已确认的后续工具路线
 
-在用户明确选择前，不删除现有 Python 工具，也不新增 MATLAB 实现。
+2026-08-30 用户确认采用双路线：
+
+- `scripts/plot_transient.py` 是仓库的自动校验、CI 友好和跨平台绘图入口；
+- `scripts/plot_transient.m` 是 MATLAB 环境中的交互分析伴侣；
+- 二者只消费同一份 TinySpice CSV，不改变仿真内核、CLI 或 CSV 契约。
