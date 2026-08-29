@@ -493,6 +493,26 @@ vL1=1V, vL2=0.5V, iV=-iL
 
 ---
 
+## 十八、M07 `.op` 仿真控制器测试（2026-08-29）
+
+**位置**：`tests/test_simulate.cpp` 的 2 个 `SimulationControllerOpTest` 用例、
+`tests/CMakeLists.txt` 的测试注册，以及用户明确授权后由 AI 完成的
+`src/CMakeLists.txt` 机械挂载；
+**`src/sim/simulate.h/.cpp` 的公开契约、所有权处理与控制器实现均由用户亲手编写**。
+
+本组测试只通过公开入口 `simulate(const Circuit&)` 消费已经解析的 `Circuit`，不在测试中手工创建
+`MnaSystem`、借用 `Device*` 或调用 Newton，防止调用方继续复制控制器应当收口的编排逻辑。
+
+| 用例 | 独立 oracle 与防护目标 |
+|------|------------------------|
+| `ParsedDividerReturnsTypedHandCalculatedOperatingPoint` | 分压网表手算 `x=[10V,8V,-2mA]`；同时要求 variant 激活 `OperatingPointResult` 且迭代数为正，守住 parser → controller → Newton 的统一入口和结构化结果 |
+| `ParsedDiodePreservesNewtonPathAndIterationInfo` | 二极管工作点独立期望 `v2=0.574191503V、iV=-4.425808mA`，并要求迭代数大于 1，防止控制器误走线性专用路径或丢失 Newton 迭代信息 |
+
+本档不覆盖 `.tran`、全零瞬态初值、`AnalysisType::None`、异常传播、重复调用、CLI/CSV 或节点名映射；
+这些边界按 M07 后续档位分别验收。
+
+---
+
 ## 复盘节奏建议
 
 - **第一遍**（写完当天或次日）：读 `lu_decomposition` 全文 + 本文档 Q1–Q6，把答不上来的标出来。

@@ -53,3 +53,7 @@ gtest_discover_tests(test_transient)
 add_executable(test_inductor test_inductor.cpp)
 target_link_libraries(test_inductor PRIVATE SpiceLib GTest::gtest_main)
 gtest_discover_tests(test_inductor)
+
+add_executable(test_simulate test_simulate.cpp)
+target_link_libraries(test_simulate PRIVATE SpiceLib GTest::gtest_main)
+gtest_discover_tests(test_simulate)

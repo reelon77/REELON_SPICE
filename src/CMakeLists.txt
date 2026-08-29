@@ -31,6 +31,8 @@ add_library(SpiceLib STATIC
     solver/transient.cpp
     devices/Inductor.cpp
     devices/Inductor.h
+    sim/simulate.cpp
+    sim/simulate.h
 )
 
 target_include_directories(SpiceLib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

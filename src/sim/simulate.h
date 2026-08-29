@@ -19,3 +19,5 @@ struct TransientAnalysisResult {
 using SimulationResult =
     std::variant<OperatingPointResult,
                  TransientAnalysisResult>;
+
+SimulationResult simulate(const Circuit& circuit);
