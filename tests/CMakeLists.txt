@@ -61,3 +61,35 @@ gtest_discover_tests(test_simulate)
 add_executable(test_result_writer test_result_writer.cpp)
 target_link_libraries(test_result_writer PRIVATE SpiceLib GTest::gtest_main)
 gtest_discover_tests(test_result_writer)
+
+add_executable(test_cli test_cli.cpp)
+target_link_libraries(test_cli PRIVATE TinySpiceCli GTest::gtest_main)
+gtest_discover_tests(test_cli)
+
+add_test(
+    NAME CliProcessOpSmoke
+    COMMAND $<TARGET_FILE:TinySpice>
+            ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/cli_divider.cir
+)
+set_tests_properties(
+    CliProcessOpSmoke
+    PROPERTIES PASS_REGULAR_EXPRESSION "V\\(2\\) = 8"
+)
+
+add_test(
+    NAME CliProcessTransientSmoke
+    COMMAND $<TARGET_FILE:TinySpice>
+            ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/cli_rc.cir
+)
+set_tests_properties(
+    CliProcessTransientSmoke
+    PROPERTIES PASS_REGULAR_EXPRESSION "time,V\\(in\\),V\\(out\\),I\\(v1\\)"
+)
+
+add_test(
+    NAME CliProcessMissingFileSmoke
+    COMMAND ${CMAKE_COMMAND}
+            "-DTINYSPICE_EXE=$<TARGET_FILE:TinySpice>"
+            "-DINPUT_PATH=${CMAKE_CURRENT_BINARY_DIR}/definitely-missing.cir"
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/check_cli_failure.cmake
+)

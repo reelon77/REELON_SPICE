@@ -4,7 +4,7 @@
 > 执行日期：2026-08-29 起
 > 任务单：`会话交接/会话交接_M08_结果输出与CLI.md`
 > 启动提交：`578f370 docs: accept M07 and dispatch M08 output task`
-> 当前状态：第 0～2 档已通过；第 3～4 档尚未开始，全仓 136/136，M08 尚未达到完成定义。
+> 当前状态：第 0～3 档已通过；第 4 档尚未开始，全仓 148/148，M08 P0 已完成但尚未达到 P1 完成定义。
 
 ## 一、第 0 档：输出契约设计闸门
 
@@ -261,3 +261,36 @@ AI 在 `tests/test_parser.cpp` 新增 4 个 `CircuitMetadataTest`，并登记到
 - `git diff --check`：通过。
 
 第 2 档达到任务单绿灯；第 3 档 CLI 尚未开始。
+
+## 六、第 3 档：CLI 端到端（P0）
+
+### 1. 应用分层
+
+- 新增 `sandbox/cli/run_cli.h/.cpp`，薄 `main()` 只把 `argv[1..]` 转为参数容器并传入 stdout/stderr。
+- `TinySpiceCli` 应用层库链接 `SpiceLib`，函数测试可直接调用 runner；solver/controller 不反向依赖 CLI。
+- runner 严格调用 `parse_circuit -> simulate -> write_simulation_result`，没有复制任何下层算法。
+
+### 2. 语法、文件与错误契约
+
+仅接受：
+
+```text
+TinySpice <netlist-file>
+TinySpice <netlist-file> -o <output-file>
+```
+
+- 成功返回 0；文件/parser/solver/writer 失败返回 1；参数错误返回 2 并输出固定 usage。
+- 无 `-o` 写 stdout；有 `-o` 写文件且 stdout 不重复。
+- 输出文件在 parser/simulator 成功后才打开；输入输出路径文字相同时提前拒绝，避免截断网表。
+- 文件 writer 完成后显式检查 flush 和 close；所有顶层异常转换为 `error: ...` stderr。
+
+### 3. 测试与验证
+
+- AI 新增 9 个 `CliRunner` 函数级测试：`.op/.tran`、`-o`、参数矩阵、缺文件、parser/solver、同路径、
+  输出打开失败和失败 stdout。
+- AI 新增 `.op`、RC 测试网表以及 3 条真实进程 CTest：两条成功烟囱和一条缺文件失败烟囱。
+- CLI 定向：**12/12** 通过。
+- 全仓：由 136 增至 **148/148**，原回归全部保留。
+- `git diff --check`：通过。
+
+第 0～3 档全部绿灯，M08 P0 达成；第 4 档示例、Python、README 与最终回执尚未开始。

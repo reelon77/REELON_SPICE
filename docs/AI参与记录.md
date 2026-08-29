@@ -566,6 +566,29 @@ writer 不调用 parser、controller、Newton、LU 或 transient solver；只消
 
 ---
 
+## 二十一、M08 CLI runner 与进程测试（2026-08-30，用户特殊授权）
+
+**生产代码位置**：`sandbox/cli/run_cli.h/.cpp`、`sandbox/cli/main.cpp` 和 `sandbox/CMakeLists.txt`，
+均由 AI 根据用户 2026-08-30 的特殊授权完成。
+
+CLI 保持应用层职责：打开文件、调用 `parse_circuit -> simulate -> write_simulation_result`、选择 stdout/文件、
+把顶层 `std::exception` 转换成 stderr 与退出码。它不复制 parser、controller、Newton、LU 或 writer 逻辑。
+
+**测试位置**：`tests/test_cli.cpp` 的 9 个函数级用例、2 份测试网表、3 个真实进程 CTest，以及
+`tests/check_cli_failure.cmake` 的跨平台失败路径包装，均由 AI 编写。
+
+| 范围 | 防护目标 |
+|------|----------|
+| `.op/.tran` stdout | 两种 variant 都贯通真实文件、parser、controller 和 writer，成功返回 0、stderr 为空 |
+| `-o` 文件 | 文件内容正确且 stdout 不重复；输入输出同路径时拒绝并保持网表未截断 |
+| 参数矩阵 | 无参数、多余参数、错误 flag、缺输出目标和空路径稳定返回 2 并输出固定 usage |
+| 运行错误 | 缺输入、非法网表、奇异电路、输出目录失败和损坏 stdout 均返回 1，错误只写 stderr |
+| 真实进程 | `.op`、RC `.tran` 和缺文件三条 CTest 烟囱验证实际 `TinySpice` 可执行文件、链接和退出状态 |
+
+数值断言继续解析 writer 文本；`-2mA` 不按短字符串匹配，避免把 `max_digits10` 的合法长尾误判为错误。
+
+---
+
 ## 复盘节奏建议
 
 - **第一遍**（写完当天或次日）：读 `lu_decomposition` 全文 + 本文档 Q1–Q6，把答不上来的标出来。
