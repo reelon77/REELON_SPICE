@@ -5,7 +5,9 @@
 
 #include <gtest/gtest.h>
 
+#include <cstddef>
 #include <sstream>
+#include <stdexcept>
 #include <variant>
 
 TEST(SimulationControllerOpTest, ParsedDividerReturnsTypedHandCalculatedOperatingPoint) {
@@ -115,4 +117,64 @@ TEST(SimulationControllerTransientTest, ParsedRlPreservesSharedBranchOrderAndHan
     EXPECT_NEAR(tran.trajectory[2].x[1], 2.0, 1e-12);
     EXPECT_NEAR(tran.trajectory[2].x[2], 0.75, 1e-12);
     EXPECT_NEAR(tran.trajectory[2].x[3], -0.75, 1e-12);
+}
+
+TEST(SimulationControllerErrorTest, RejectsCircuitWithoutAnalysisDirective) {
+    std::istringstream input(
+        "V1 1 0 1\n"
+        ".end\n");
+
+    Circuit circuit = parse_circuit(input);
+    ASSERT_EQ(circuit.analysis_type, AnalysisType::None);
+
+    EXPECT_THROW(simulate(circuit), std::invalid_argument);
+}
+
+TEST(SimulationControllerErrorTest, PropagatesSingularOperatingPointFailure) {
+    std::istringstream input(
+        "R1 1 2 1k\n"
+        ".op\n"
+        ".end\n");
+
+    Circuit circuit = parse_circuit(input);
+
+    EXPECT_THROW(simulate(circuit), std::runtime_error);
+}
+
+TEST(SimulationControllerErrorTest, PropagatesInvalidTransientParameters) {
+    std::istringstream input(
+        "V1 in 0 1\n"
+        "R1 in out 1\n"
+        "C1 out 0 1\n"
+        ".tran 100m 200m\n"
+        ".end\n");
+
+    Circuit circuit = parse_circuit(input);
+    circuit.t_step = 0.0;
+
+    EXPECT_THROW(simulate(circuit), std::invalid_argument);
+}
+
+TEST(SimulationControllerLifetimeTest, RepeatedTransientCallsDoNotShareWorkspaceOrHistory) {
+    std::istringstream input(
+        "V1 in 0 2\n"
+        "R1 in out 2\n"
+        "C1 out 0 500m\n"
+        ".tran 250m 500m\n"
+        ".end\n");
+
+    Circuit circuit = parse_circuit(input);
+    const SimulationResult first_result = simulate(circuit);
+    const SimulationResult second_result = simulate(circuit);
+
+    ASSERT_TRUE(std::holds_alternative<TransientAnalysisResult>(first_result));
+    ASSERT_TRUE(std::holds_alternative<TransientAnalysisResult>(second_result));
+    const auto& first = std::get<TransientAnalysisResult>(first_result).trajectory;
+    const auto& second = std::get<TransientAnalysisResult>(second_result).trajectory;
+
+    ASSERT_EQ(first.size(), second.size());
+    for (std::size_t point = 0; point < first.size(); ++point) {
+        EXPECT_DOUBLE_EQ(first[point].time, second[point].time);
+        EXPECT_EQ(first[point].x, second[point].x);
+    }
 }

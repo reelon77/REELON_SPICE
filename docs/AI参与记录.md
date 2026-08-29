@@ -496,7 +496,8 @@ vL1=1V, vL2=0.5V, iV=-iL
 ## 十八、M07 `.op` 仿真控制器测试（2026-08-29）
 
 **位置**：`tests/test_simulate.cpp` 的 2 个 `SimulationControllerOpTest` 和
-2 个 `SimulationControllerTransientTest` 用例、
+2 个 `SimulationControllerTransientTest`、3 个 `SimulationControllerErrorTest` 和
+1 个 `SimulationControllerLifetimeTest` 用例、
 `tests/CMakeLists.txt` 的测试注册，以及用户明确授权后由 AI 完成的
 `src/CMakeLists.txt` 机械挂载；
 **`src/sim/simulate.h/.cpp` 的公开契约、所有权处理与控制器实现均由用户亲手编写**。
@@ -510,8 +511,12 @@ vL1=1V, vL2=0.5V, iV=-iL
 | `ParsedDiodePreservesNewtonPathAndIterationInfo` | 二极管工作点独立期望 `v2=0.574191503V、iV=-4.425808mA`，并要求迭代数大于 1，防止控制器误走线性专用路径或丢失 Newton 迭代信息 |
 | `ParsedRcReturnsZeroInitialPointAndHandCalculatedTrajectory` | RC 网表要求 variant 激活 `TransientAnalysisResult`、`t=0` 为三维全零向量，并独立手算两步 `[2,0.4,-0.8]`、`[2,0.72,-0.64]`，守住零初值和时间参数转发 |
 | `ParsedRlPreservesSharedBranchOrderAndHandCalculatedTrajectory` | L 故意先于 V，要求 `t=0` 为四维全零向量，并按 `[vout,vin,iL,iV]` 独立手算两步 `[1,2,0.5,-0.5]`、`[0.5,2,0.75,-0.75]`，守住共享支路顺序和完整轨迹返回 |
+| `RejectsCircuitWithoutAnalysisDirective` | 解析出合法器件但 `analysis_type=None` 时必须明确抛 `invalid_argument`，不能静默返回默认 variant 或空结果 |
+| `PropagatesSingularOperatingPointFailure` | 未接地的单电阻产生奇异拉普拉斯矩阵，要求底层 `runtime_error` 穿过 controller，防止吞异常后伪造工作点 |
+| `PropagatesInvalidTransientParameters` | 在已解析电路上将 `t_step` 置零，要求 `transient_solve` 的 `invalid_argument` 原样可观察，防止 controller 绕过或吞掉底层参数校验 |
+| `RepeatedTransientCallsDoNotShareWorkspaceOrHistory` | 同一 `Circuit` 连续调用两次必须得到逐点完全相同的 RC 轨迹，守住每次新建 `MnaSystem`、局部借用视图和局部历史状态，不得跨调用污染 |
 
-本档不覆盖 `AnalysisType::None`、异常传播、重复调用、CLI/CSV 或节点名映射；
+本档不覆盖 CLI/CSV、节点名映射、Newton 配置注入或失败后缩步；
 这些边界按 M07 后续档位分别验收。
 
 ---
