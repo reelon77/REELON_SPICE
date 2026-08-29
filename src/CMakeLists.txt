@@ -33,6 +33,8 @@ add_library(SpiceLib STATIC
     devices/Inductor.h
     sim/simulate.cpp
     sim/simulate.h
+    output/result_writer.cpp
+    output/result_writer.h
 )
 
 target_include_directories(SpiceLib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

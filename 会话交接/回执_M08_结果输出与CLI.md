@@ -4,7 +4,7 @@
 > 执行日期：2026-08-29 起
 > 任务单：`会话交接/会话交接_M08_结果输出与CLI.md`
 > 启动提交：`578f370 docs: accept M07 and dispatch M08 output task`
-> 当前状态：第 0～1 档已通过；第 2～4 档尚未开始，全仓 128/128，M08 尚未达到完成定义。
+> 当前状态：第 0～2 档已通过；第 3～4 档尚未开始，全仓 136/136，M08 尚未达到完成定义。
 
 ## 一、第 0 档：输出契约设计闸门
 
@@ -232,3 +232,32 @@ AI 在 `tests/test_parser.cpp` 新增 4 个 `CircuitMetadataTest`，并登记到
 - `git diff --check`：通过。
 
 第 1 档达到任务单绿灯；第 2 档 writer 尚未开始。
+
+## 五、第 2 档：可复用结果 writer
+
+### 1. 特殊授权与归属
+
+用户因秋招在即，于 2026-08-30 明确授权 AI 直接完成 M08 剩余非核心部分。`result_writer.h` 和最初的
+元数据校验骨架由用户亲手编写；AI 在该授权后完成 writer 生产实现、测试、CMake、登记和 Git 收口。
+
+### 2. writer 实现
+
+- 新增 `src/output/result_writer.h/.cpp`，公开 `.op`、`.tran` CSV 和统一 variant 分派三个入口。
+- `.op` 输出 `analysis: .op`、全部非地 `V(name)`、全部 V/L `I(name)` 和 Newton 迭代数。
+- `.tran` 输出 `time` 加完整解向量标签，每个轨迹点一行。
+- 输出前完整校验 `Circuit` 元数据、结果维度和非空轨迹；任何后续点维度错误都在首字符写出前拒绝。
+- CSV 名称含逗号、双引号、CR/LF 时明确拒绝，不在 M08 实现复杂转义。
+- 使用经典 locale、`defaultfloat` 和 `max_digits10`；通过共享 streambuf 的局部格式流避免污染调用者状态。
+- 失败 streambuf 转换为可观察的 `runtime_error`；writer 不主动 flush 调用者拥有的流。
+- `write_simulation_result` 只做 variant 分派，不重新求解或解析。
+
+### 3. 测试与验证
+
+- AI 新增 `tests/test_result_writer.cpp` 的 8 个用例，并完成 SpiceLib/测试目标的机械 CMake 挂载。
+- `.op` 独立 oracle：`V(1)=10V、V(2)=8V、I(v1)=-2mA`。
+- RC CSV 独立 oracle：`t=0/0.25/0.5`，`V(out)=0/0.4/0.72`，`I(v1)=0/-0.8/-0.64`。
+- writer 定向测试：**8/8** 通过。
+- 全仓：由 128 增至 **136/136**，原回归全部保留。
+- `git diff --check`：通过。
+
+第 2 档达到任务单绿灯；第 3 档 CLI 尚未开始。

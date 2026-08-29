@@ -540,6 +540,32 @@ vL1=1V, vL2=0.5V, iV=-iL
 
 ---
 
+## 二十、M08 结果 writer 实现与测试（2026-08-30，用户特殊授权）
+
+用户因秋招在即，于 2026-08-30 明确授权 AI 直接完成 M08 剩余非核心输出/CLI 部分。该授权覆盖
+writer、CLI、示例、Python、README、测试、CMake、回执和 Git，但不扩大到 M09 或任务单停车场。
+
+**生产代码位置**：`src/output/result_writer.h/.cpp`。头文件和最初的元数据校验骨架由用户亲手编写；
+AI 在特殊授权后修订校验错误信息，并完成 `.op`、`.tran` CSV、variant 分派、locale/精度控制、
+维度/CSV 名称/失败流校验以及机械 CMake 挂载。
+
+**测试位置**：`tests/test_result_writer.cpp` 的 8 个用例及 `tests/CMakeLists.txt` 注册，均由 AI 编写。
+
+| 用例 | 独立 oracle 与防护目标 |
+|------|------------------------|
+| `WritesLabelsHandOracleAndIterations` | 分压手算 `10V/8V/-2mA`，检查节点/branch 标签、顺序、迭代数和末尾换行 |
+| `WritesStableHeaderAndHandCalculatedRcRows` | RC 手算三点 `0/0.25/0.5` 与 `0.4/0.72`，表头逐字符、数值解析后比较 |
+| `RejectsMetadataMismatchBeforeWriting` | 元数据 size 不变量破坏时必须在写出任何字符前拒绝 |
+| `RejectsEveryResultDimensionMismatchBeforeWriting` | `.op` 维度错误及瞬态后续点维度错误均不得产生半份输出 |
+| `RejectsEmptyTrajectoryAndUnsupportedCsvName` | 拒绝空轨迹和未实现转义的逗号等 CSV 特殊名称 |
+| `UsesClassicLocaleWithoutChangingCallerState` | 调用者使用逗号小数、科学计数和低精度时，writer 仍输出经典 locale/max_digits10，且不污染调用者状态 |
+| `ThrowsWhenDestinationCannotAcceptWrites` | 自定义失败 streambuf 必须转成可观察的 `runtime_error` |
+| `RoutesBothVariantAlternatives` | 统一入口必须把 `.op/.tran` variant 分派到正确 writer |
+
+writer 不调用 parser、controller、Newton、LU 或 transient solver；只消费 `Circuit` 元数据和结构化结果。
+
+---
+
 ## 复盘节奏建议
 
 - **第一遍**（写完当天或次日）：读 `lu_decomposition` 全文 + 本文档 Q1–Q6，把答不上来的标出来。

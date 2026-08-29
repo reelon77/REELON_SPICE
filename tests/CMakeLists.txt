@@ -57,3 +57,7 @@ gtest_discover_tests(test_inductor)
 add_executable(test_simulate test_simulate.cpp)
 target_link_libraries(test_simulate PRIVATE SpiceLib GTest::gtest_main)
 gtest_discover_tests(test_simulate)
+
+add_executable(test_result_writer test_result_writer.cpp)
+target_link_libraries(test_result_writer PRIVATE SpiceLib GTest::gtest_main)
+gtest_discover_tests(test_result_writer)
