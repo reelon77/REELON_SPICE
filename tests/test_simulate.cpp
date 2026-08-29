@@ -47,3 +47,72 @@ TEST(SimulationControllerOpTest, ParsedDiodePreservesNewtonPathAndIterationInfo)
     EXPECT_NEAR(op.x[2], -4.425808e-3, 1e-6);
     EXPECT_GT(op.iterations, 1);
 }
+
+TEST(SimulationControllerTransientTest, ParsedRcReturnsZeroInitialPointAndHandCalculatedTrajectory) {
+    std::istringstream input(
+        "V1 in 0 2\n"
+        "R1 in out 2\n"
+        "C1 out 0 500m\n"
+        ".tran 250m 500m\n"
+        ".end\n");
+
+    Circuit circuit = parse_circuit(input);
+    const SimulationResult result = simulate(circuit);
+
+    ASSERT_TRUE(std::holds_alternative<TransientAnalysisResult>(result));
+    const TransientAnalysisResult& tran =
+        std::get<TransientAnalysisResult>(result);
+    ASSERT_EQ(tran.trajectory.size(), 3u);
+
+    EXPECT_DOUBLE_EQ(tran.trajectory[0].time, 0.0);
+    ASSERT_EQ(tran.trajectory[0].x.size(), 3u);
+    EXPECT_DOUBLE_EQ(tran.trajectory[0].x[0], 0.0);
+    EXPECT_DOUBLE_EQ(tran.trajectory[0].x[1], 0.0);
+    EXPECT_DOUBLE_EQ(tran.trajectory[0].x[2], 0.0);
+
+    EXPECT_NEAR(tran.trajectory[1].time, 0.25, 1e-12);
+    EXPECT_NEAR(tran.trajectory[1].x[0], 2.0, 1e-12);
+    EXPECT_NEAR(tran.trajectory[1].x[1], 0.4, 1e-12);
+    EXPECT_NEAR(tran.trajectory[1].x[2], -0.8, 1e-12);
+
+    EXPECT_NEAR(tran.trajectory[2].time, 0.5, 1e-12);
+    EXPECT_NEAR(tran.trajectory[2].x[0], 2.0, 1e-12);
+    EXPECT_NEAR(tran.trajectory[2].x[1], 0.72, 1e-12);
+    EXPECT_NEAR(tran.trajectory[2].x[2], -0.64, 1e-12);
+}
+
+TEST(SimulationControllerTransientTest, ParsedRlPreservesSharedBranchOrderAndHandCalculatedTrajectory) {
+    std::istringstream input(
+        "L1 out 0 500m\n"
+        "V1 in 0 2\n"
+        "R1 in out 2\n"
+        ".tran 250m 500m\n"
+        ".end\n");
+
+    Circuit circuit = parse_circuit(input);
+    const SimulationResult result = simulate(circuit);
+
+    ASSERT_TRUE(std::holds_alternative<TransientAnalysisResult>(result));
+    const TransientAnalysisResult& tran =
+        std::get<TransientAnalysisResult>(result);
+    ASSERT_EQ(tran.trajectory.size(), 3u);
+
+    EXPECT_DOUBLE_EQ(tran.trajectory[0].time, 0.0);
+    ASSERT_EQ(tran.trajectory[0].x.size(), 4u);
+    EXPECT_DOUBLE_EQ(tran.trajectory[0].x[0], 0.0);
+    EXPECT_DOUBLE_EQ(tran.trajectory[0].x[1], 0.0);
+    EXPECT_DOUBLE_EQ(tran.trajectory[0].x[2], 0.0);
+    EXPECT_DOUBLE_EQ(tran.trajectory[0].x[3], 0.0);
+
+    EXPECT_NEAR(tran.trajectory[1].time, 0.25, 1e-12);
+    EXPECT_NEAR(tran.trajectory[1].x[0], 1.0, 1e-12);
+    EXPECT_NEAR(tran.trajectory[1].x[1], 2.0, 1e-12);
+    EXPECT_NEAR(tran.trajectory[1].x[2], 0.5, 1e-12);
+    EXPECT_NEAR(tran.trajectory[1].x[3], -0.5, 1e-12);
+
+    EXPECT_NEAR(tran.trajectory[2].time, 0.5, 1e-12);
+    EXPECT_NEAR(tran.trajectory[2].x[0], 0.5, 1e-12);
+    EXPECT_NEAR(tran.trajectory[2].x[1], 2.0, 1e-12);
+    EXPECT_NEAR(tran.trajectory[2].x[2], 0.75, 1e-12);
+    EXPECT_NEAR(tran.trajectory[2].x[3], -0.75, 1e-12);
+}
