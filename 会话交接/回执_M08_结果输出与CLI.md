@@ -415,3 +415,47 @@ python3 scripts/plot_transient.py build/rc.csv 'V(out)' -o build/rc-output.png
 - 全仓 152/152，三份 example、stdout、`-o`、CSV 和 dependency-free Python 解析链路均已实跑。
 - 因本机缺 matplotlib，图片渲染按任务单允许的依赖分支记录为未在本机执行；缺依赖错误已实测。
 - 本结论是“达到 M08 任务单完成定义”，不代表主线正式销项；应由 `TinySpice｜MAIN｜主线管理` 复验。
+
+## 十三、交回主会话的功能与文件清单
+
+以下清单用于 `TinySpice｜MAIN｜主线管理` 复验 M08，覆盖从启动提交 `578f370` 到实现收口提交
+`5d4ba32` 的全部功能文件，并明确生产代码归属。
+
+| 功能模块 | 已完成功能 | 涉及文件 | 编写归属 |
+|----------|------------|----------|----------|
+| Circuit 输出元数据 | 保存规范地名、节点首次出现顺序、V/L 共享 branch 顺序，并与 MNA `x` 布局对齐 | `src/parser/Circuit.h`、`src/parser/Circuit.cpp` | 核心生产代码由用户亲写；AI 教学、编号 review 和测试 |
+| ostream 结果 writer | `.op` 标签文本、`.tran` CSV、variant 分派、维度/locale/精度/失败流校验 | `src/output/result_writer.h`、`src/output/result_writer.cpp`、`src/CMakeLists.txt` | 用户写接口及最初校验骨架；AI 在特殊授权后完成其余实现与挂载 |
+| CLI 应用层 | `TinySpice <file> [-o <file>]`、parser → controller → writer 编排、stdout/文件选择、0/1/2 退出码、stderr 错误、同文件保护 | `sandbox/cli/run_cli.h`、`sandbox/cli/run_cli.cpp`、`sandbox/cli/main.cpp`、`sandbox/CMakeLists.txt` | AI 在特殊授权下完成 |
+| 可运行示例 | `.op` 分压、RC `.tran`、RL `.tran` | `examples/divider_op.cir`、`examples/rc_transient.cir`、`examples/rl_transient.cir` | AI 在特殊授权下完成 |
+| Python 波形链路 | 读取 CSV、识别 `time`、选择一列/多列/全部列、保存或交互绘图、dependency-free 验证、明确错误 | `scripts/plot_transient.py` | AI 在特殊授权下完成 |
+| 新用户文档 | 构建、运行、`-o` 导出、Python 画图、依赖、支持语法和限制 | `README.md` | AI 在特殊授权下完成 |
+
+### 1. AI 完成的测试与工程文件
+
+- metadata：`tests/test_parser.cpp` 中新增 4 个 `CircuitMetadataTest`。
+- writer：`tests/test_result_writer.cpp`，共 8 个 CTest 项。
+- CLI：`tests/test_cli.cpp`、`tests/fixtures/cli_divider.cir`、`tests/fixtures/cli_rc.cir`、
+  `tests/check_cli_failure.cmake`，共 9 个 runner 用例和 3 个真实进程测试。
+- examples/Python：`tests/test_plot_transient.py`，以及 `tests/CMakeLists.txt` 中 3 个 example 真实进程测试和
+  1 个 Python 测试入口；Python 入口内部有 6 个单元场景。
+- CMake：`src/CMakeLists.txt`、`sandbox/CMakeLists.txt`、`tests/CMakeLists.txt` 中仅完成相应目标和测试的机械挂载。
+
+### 2. AI 完成的记录与 Git 工作
+
+- `docs/AI参与记录.md`：第 19～22 节记录 metadata 测试、writer、CLI、examples/Python 的参与边界。
+- `会话交接/回执_M08_结果输出与CLI.md`：设计决策、逐档验收、提交、测试增长、依赖状态和本清单。
+- M08 的 status/diff/构建/测试、逐档 commit、push、main/origin 同步和最终干净工作区均由 AI 执行。
+
+### 3. 主会话建议复验入口
+
+```bash
+git diff --name-status 578f370..5d4ba32
+cmake --build ./build
+ctest --test-dir ./build --output-on-failure
+./build/sandbox/TinySpice examples/divider_op.cir
+./build/sandbox/TinySpice examples/rc_transient.cir -o build/rc.csv
+./build/sandbox/TinySpice examples/rl_transient.cir -o build/rl.csv
+python3 scripts/plot_transient.py build/rc.csv --validate-only
+```
+
+实现范围之外没有隐藏改动；M08 停车场和下游任务均未启动。
