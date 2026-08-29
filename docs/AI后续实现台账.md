@@ -120,7 +120,7 @@ AI 设计/实现范围：
 - AI 测试/CMake：未新增或修改；当前环境没有 MATLAB/Octave，不虚构运行测试，也不把不可运行的 MATLAB 用例挂入 CTest。
 - 明确未修改：全部 `src/`、CLI、CSV writer、Python 工具及既有测试。
 - 验证：重新构建成功；全仓 152/152；真实 RC CSV 经 Python `--validate-only` 验证成功（3 行，`time/V(in)/V(out)/I(v1)`）；MATLAB 文件完成静态审阅。当前环境没有 MATLAB/Octave，MATLAB 实机运行状态为“未验证”。
-- 提交：本次阶段提交（提交后由纯文档提交回填 hash）。
+- 提交：`19c3751 feat: add MATLAB transient waveform companion`；本行由随后纯文档提交回填。
 - 用户复核点：在学校 MATLAB 中依次执行 README 的全列、选列和保存图片示例；若 MATLAB 报版本兼容问题，再根据实际版本做最小兼容调整。
 
 ## 六、已确认的后续工具路线
