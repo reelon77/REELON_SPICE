@@ -117,11 +117,11 @@ AI 设计/实现范围：
 - AI 设计决策：CSV 继续作为唯一稳定交换格式；Python 负责自动验证、CI 友好和跨平台入口，MATLAB 负责学校环境下的交互分析。两个消费者互不依赖。
 - AI 生产/工具代码：新建 `scripts/plot_transient.m`，支持全列/选列、交互显示/文件导出，并校验文件、`time`、列名、空数据、实数数值和有限值。
 - AI 文档：修改 `README.md`、本台账及 `项目梳理与开发计划.md`，锁定双路线职责与调用方式。
-- AI 测试/CMake：未新增或修改；当前环境没有 MATLAB/Octave，不虚构运行测试，也不把不可运行的 MATLAB 用例挂入 CTest。
+- AI 测试/CMake：未新增或修改；MATLAB 是可选外部消费者，不强制挂入 CTest。
 - 明确未修改：全部 `src/`、CLI、CSV writer、Python 工具及既有测试。
-- 验证：重新构建成功；全仓 152/152；真实 RC CSV 经 Python `--validate-only` 验证成功（3 行，`time/V(in)/V(out)/I(v1)`）；MATLAB 文件完成静态审阅。当前环境没有 MATLAB/Octave，MATLAB 实机运行状态为“未验证”。
+- 验证：重新构建成功；全仓 152/152；真实 RC CSV 经 Python `--validate-only` 验证成功（3 行，`time/V(in)/V(out)/I(v1)`）。随后在 MATLAB R2026a Update 5 实跑全部列、指定列、多列 PNG 导出和缺失列错误路径，均通过；导出图片为 1274×820，目视确认曲线、坐标轴与图例正常。
 - 提交：`19c3751 feat: add MATLAB transient waveform companion`；本行由随后纯文档提交回填。
-- 用户复核点：在学校 MATLAB 中依次执行 README 的全列、选列和保存图片示例；若 MATLAB 报版本兼容问题，再根据实际版本做最小兼容调整。
+- 用户复核点：可按 README 示例自行调整列选择和图片样式；功能与错误路径已完成实机验收。
 
 ## 六、已确认的后续工具路线
 
