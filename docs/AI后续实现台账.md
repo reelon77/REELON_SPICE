@@ -2,7 +2,7 @@
 
 > 建立日期：2026-08-30
 > 起算基线：`4d11881 docs: add M08 implementation handoff inventory`
-> 状态：启用；波形绘图采用 Python 自动化 + MATLAB 交互分析双路线
+> 状态：启用；TinySpice 1.0 AI 实现阶段启动，当前任务 `TS-M09-DC`
 
 ## 一、用途
 
@@ -91,7 +91,7 @@ AI 设计/实现范围：
 
 明确保留的用户归属：`Circuit` 元数据与 parser 同步实现由用户亲写；M07 及其之前的核心算法归属不变。
 
-验证：M08 主会话复验全仓 152/152；三份 example、CLI CSV 和 Python `--validate-only` 通过。matplotlib/MATLAB 图片渲染尚未在当前机器实跑。
+验证：M08 主会话复验全仓 152/152；三份 example、CLI CSV 和 Python `--validate-only` 通过。MATLAB 在后续 `AI-0002` 中完成 R2026a 实机验收。
 
 ## 五、授权后记录
 
@@ -122,6 +122,20 @@ AI 设计/实现范围：
 - 验证：重新构建成功；全仓 152/152；真实 RC CSV 经 Python `--validate-only` 验证成功（3 行，`time/V(in)/V(out)/I(v1)`）。随后在 MATLAB R2026a Update 5 实跑全部列、指定列、多列 PNG 导出和缺失列错误路径，均通过；导出图片为 1274×820，目视确认曲线、坐标轴与图例正常。
 - 提交：`19c3751 feat: add MATLAB transient waveform companion`；本行由随后纯文档提交回填。
 - 用户复核点：可按 README 示例自行调整列选择和图片样式；功能与错误路径已完成实机验收。
+
+### `AI-0003`：冻结 TinySpice 1.0 范围并下发 M09
+
+> 日期：2026-08-30
+> Task ID：`TS-1.0-ROADMAP` / `TS-M09-DC`
+> 类型：主会话架构规划与任务下发
+
+- 用户确认采用“TinySpice 1.0 实用 SPICE 子集”，不采用 ngspice 后端冒充自主实现。
+- AI 新建 `docs/TinySpice_1.0_规格与路线图.md`，明确分析、器件、网表、数值能力、非目标、9 个任务依赖和 `v1.0.0` 发布闸门。
+- AI 新建 `会话交接/会话交接_M09_直流扫描与源抽象.md`，把类型化分析请求、器件身份、非破坏式源覆盖、单/双源 `.dc`、writer/CLI 和测试拆为第 0～4 档。
+- AI 更新 `项目梳理与开发计划.md` 和本台账，将当前活动任务切换为 `TS-M09-DC`。
+- 本记录阶段不修改任何 `src/`、测试、CMake、CLI 或 example；生产实现只能在正式 M09 任务会话开始。
+- 验证：文档范围与会话边界检查通过；重新构建成功，全仓 152/152；变更仅含规格、任务单和项目管理文档。
+- 提交：本次任务下发提交（提交后由纯文档提交回填 hash）。
 
 ## 六、已确认的后续工具路线
 
