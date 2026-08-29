@@ -4,7 +4,7 @@
 > 执行日期：2026-08-29 起
 > 任务单：`会话交接/会话交接_M08_结果输出与CLI.md`
 > 启动提交：`578f370 docs: accept M07 and dispatch M08 output task`
-> 当前状态：第 0 档设计闸门已通过；第 1～4 档尚未开始，M08 尚未达到完成定义。
+> 当前状态：第 0～1 档已通过；第 2～4 档尚未开始，全仓 128/128，M08 尚未达到完成定义。
 
 ## 一、第 0 档：输出契约设计闸门
 
@@ -182,6 +182,53 @@ usage: TinySpice <netlist-file> [-o <output-file>]
 
 ## 三、代码与协作边界
 
-- 本档只完成只读核对、设计教学和回执记录。
-- 未修改 `src/`、CLI 实现、测试、CMake、示例或脚本。
-- 第 1～4 档尚未开始；不得把本阶段回执解释为 M08 完成或主线正式销项。
+- 第 0 档只完成只读核对、设计教学和回执记录，没有修改实现、测试或 CMake。
+- 第 1 档 `Circuit`/parser 生产代码由用户亲手编写；AI 只写测试、参与登记和本回执。
+- 第 2～4 档尚未开始；不得把当前阶段回执解释为 M08 完成或主线正式销项。
+
+## 四、第 1 档：Circuit 输出元数据
+
+### 1. 实现结果
+
+- `Circuit` 新增 `node_names{"0"}` 与空的 `branch_names`，保留既有 `nodes` 和
+  `num_branch_unknowns` 数字字段。
+- parser 首次创建非地节点时同步追加小写名称；重复节点复用原编号和名称。
+- `0/gnd` 继续映射到节点 0，元数据中只保留规范名称 `0`。
+- parser 成功创建 V/L 后，按共享 branch 编号顺序追加器件名；其他器件不进入 `branch_names`。
+- `.end` 继续在进入后续行解析前终止，因此后续器件和节点不会污染元数据。
+
+上述 `Circuit` 字段和 parser 实现均由用户亲手编写。
+
+### 2. 编号 Review
+
+首轮 review 发现并编号拦截 4 个阻塞项：
+
+1. 名称字段误写成单个 `std::string`，且 branch 字段名未采用锁定的复数形式。
+2. parser 开始时用空的 `line` 覆盖默认地名。
+3. 新节点路径没有把名称追加到 `Circuit`。
+4. V/L 路径没有同步追加 branch 名称。
+
+用户第二轮逐项修正后，4 项全部核销，没有出现同一逻辑链“改 A 漏 B”。新节点路径对 `0/gnd` 的额外判断属于
+不可达但无害的防御判断，不阻塞本档。
+
+### 3. 测试与 AI 参与
+
+AI 在 `tests/test_parser.cpp` 新增 4 个 `CircuitMetadataTest`，并登记到 `docs/AI参与记录.md`：
+
+| 用例 | 防护目标 |
+|------|----------|
+| `DefaultCircuitUsesCanonicalGroundAndNoBranches` | 默认地名、空 branch 以及两个 size 不变量 |
+| `NodeNamesFollowFirstOccurrenceWithoutDuplicates` | 首次出现顺序、小写、重复节点和 `0/gnd` 去重 |
+| `VoltageAndInductorNamesShareNetlistBranchOrder` | L 先于 V 时的共享 branch 顺序，R/C 不污染名称 |
+| `EndPreventsMetadataPollution` | `.end` 后器件、节点名和 branch 名均不进入 `Circuit` |
+
+本档不需要新增测试目标或修改 CMake。
+
+### 4. 验证结果
+
+- `cmake --build ./build`：通过。
+- `CircuitMetadataTest.*`：**4/4** 通过。
+- 全仓：由 124 增至 **128/128**，原回归全部保留。
+- `git diff --check`：通过。
+
+第 1 档达到任务单绿灯；第 2 档 writer 尚未开始。

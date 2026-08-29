@@ -521,6 +521,25 @@ vL1=1V, vL2=0.5V, iV=-iL
 
 ---
 
+## 十九、M08 Circuit 输出元数据测试（2026-08-29）
+
+**位置**：`tests/test_parser.cpp` 的 4 个 `CircuitMetadataTest` 用例（AI 代写）；
+**`Circuit::node_names`、`Circuit::branch_names` 以及 parser 同步元数据的实现均由用户亲手编写**。
+
+本组测试只验证 parser 产出的名称序列与既有数字编号严格对齐，不读取器件私有字段、不重新解析网表，
+也不提前实现 writer 或 CLI。
+
+| 用例 | 防什么 |
+|------|--------|
+| `DefaultCircuitUsesCanonicalGroundAndNoBranches` | 空电路只保留规范地名 `0`，节点名/branch 名数量分别与既有数字字段一致 |
+| `NodeNamesFollowFirstOccurrenceWithoutDuplicates` | tokenizer 小写后的节点名按首次出现顺序保存；重复节点以及 `0/gnd` 别名不得追加重复条目 |
+| `VoltageAndInductorNamesShareNetlistBranchOrder` | L 故意先于 V，要求 V/L 共同按网表顺序得到 `[lfirst,vsecond,lthird]`；R/C 不得污染 branch 名序列 |
+| `EndPreventsMetadataPollution` | `.end` 后的 L 和新节点不得进入 devices、节点名或 branch 名元数据 |
+
+本档不覆盖输出格式、CSV 转义、流错误、CLI 参数、示例或 Python 波形；这些内容留在 M08 后续档位。
+
+---
+
 ## 复盘节奏建议
 
 - **第一遍**（写完当天或次日）：读 `lu_decomposition` 全文 + 本文档 Q1–Q6，把答不上来的标出来。

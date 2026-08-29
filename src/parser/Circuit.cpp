@@ -26,12 +26,15 @@ Circuit parse_circuit(std::istream& input) {
     nodes_map["gnd"] = 0;
     int next_node = 1;
 
-    auto get_or_create_node = [&nodes_map, &next_node](const std::string& node_name) -> int {
+    auto get_or_create_node = [&nodes_map, &next_node, &circuit](const std::string& node_name) -> int {
         auto res = nodes_map.find(node_name);
         if (res != nodes_map.end()) {
             return res->second;
         }
         int new_node = next_node;
+        if (node_name != "0" && node_name != "gnd") {
+            circuit.node_names.push_back(node_name);
+        }
         nodes_map.emplace(node_name, new_node);
         next_node++;
         return new_node;
@@ -94,6 +97,7 @@ Circuit parse_circuit(std::istream& input) {
                 int node_neg = get_or_create_node(tokens[2]);
                 int sourceIndex = circuit.num_branch_unknowns;
                 circuit.devices.push_back(std::make_unique<VoltageSource>(voltage, node_pos, node_neg, sourceIndex));
+                circuit.branch_names.push_back(tokens[0]);
                 circuit.num_branch_unknowns++;
                 continue;
             } else {
@@ -161,6 +165,7 @@ Circuit parse_circuit(std::istream& input) {
             int node_pos = get_or_create_node(tokens[1]);
             int node_neg = get_or_create_node(tokens[2]);
             circuit.devices.push_back(std::make_unique<Inductor>(L, node_pos, node_neg, circuit.num_branch_unknowns));
+            circuit.branch_names.push_back(tokens[0]);
             circuit.num_branch_unknowns++;
             continue;
         }

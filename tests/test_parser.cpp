@@ -408,3 +408,73 @@ TEST(CircuitTransientParsingTest, RejectsNonPositiveTranParametersWithLineNumber
         expect_parse_error_contains(line, {"1:"}, {"undefined token"});
     }
 }
+
+// ---------- M08 第 1 档:Circuit 输出元数据 ----------
+// 本组测试由 AI 代写；Circuit 字段与 parser 元数据实现由用户亲手编写。
+
+TEST(CircuitMetadataTest, DefaultCircuitUsesCanonicalGroundAndNoBranches) {
+    std::istringstream input(
+        ".end\n");
+
+    Circuit circuit = parse_circuit(input);
+
+    EXPECT_EQ(circuit.node_names, std::vector<std::string>{"0"});
+    EXPECT_TRUE(circuit.branch_names.empty());
+    EXPECT_EQ(circuit.node_names.size(), static_cast<std::size_t>(circuit.nodes));
+    EXPECT_EQ(
+        circuit.branch_names.size(),
+        static_cast<std::size_t>(circuit.num_branch_unknowns));
+}
+
+TEST(CircuitMetadataTest, NodeNamesFollowFirstOccurrenceWithoutDuplicates) {
+    std::istringstream input(
+        "R1 OUT in 1k\n"
+        "R2 in OUT 2k\n"
+        "R3 gNd 0 3k\n"
+        ".end\n");
+
+    Circuit circuit = parse_circuit(input);
+
+    EXPECT_EQ(
+        circuit.node_names,
+        (std::vector<std::string>{"0", "out", "in"}));
+    EXPECT_EQ(circuit.node_names.size(), static_cast<std::size_t>(circuit.nodes));
+    EXPECT_TRUE(circuit.branch_names.empty());
+}
+
+TEST(CircuitMetadataTest, VoltageAndInductorNamesShareNetlistBranchOrder) {
+    std::istringstream input(
+        "LFirst OUT 0 1m\n"
+        "R1 in out 1\n"
+        "VSecond IN 0 2\n"
+        "C1 in sense 1u\n"
+        "LThird sense 0 2m\n"
+        ".end\n");
+
+    Circuit circuit = parse_circuit(input);
+
+    EXPECT_EQ(
+        circuit.node_names,
+        (std::vector<std::string>{"0", "out", "in", "sense"}));
+    EXPECT_EQ(
+        circuit.branch_names,
+        (std::vector<std::string>{"lfirst", "vsecond", "lthird"}));
+    EXPECT_EQ(
+        circuit.branch_names.size(),
+        static_cast<std::size_t>(circuit.num_branch_unknowns));
+}
+
+TEST(CircuitMetadataTest, EndPreventsMetadataPollution) {
+    std::istringstream input(
+        "V1 in 0 1\n"
+        ".end\n"
+        "LHidden leaked 0 1m\n");
+
+    Circuit circuit = parse_circuit(input);
+
+    ASSERT_EQ(circuit.devices.size(), 1u);
+    EXPECT_EQ(circuit.node_names, (std::vector<std::string>{"0", "in"}));
+    EXPECT_EQ(circuit.branch_names, (std::vector<std::string>{"v1"}));
+    EXPECT_EQ(circuit.nodes, 2);
+    EXPECT_EQ(circuit.num_branch_unknowns, 1);
+}

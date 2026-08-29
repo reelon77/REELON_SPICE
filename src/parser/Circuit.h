@@ -3,6 +3,7 @@
 #include <memory>
 #include <vector>
 #include <iosfwd>
+#include <string>
 
 #include "../devices/Device.h"
 
@@ -13,6 +14,8 @@ enum class AnalysisType {
 };
 
 struct Circuit {
+    std::vector<std::string> node_names{"0"};
+    std::vector<std::string> branch_names;
     std::vector<std::unique_ptr<Device>> devices;
     int nodes = 1;  // 包含地节点
     int num_branch_unknowns = 0;    // 每个 V/L 各占一个支路未知量，按网表出现顺序共同编号
