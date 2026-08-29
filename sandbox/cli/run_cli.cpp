@@ -5,10 +5,12 @@
 #include "sim/simulate.h"
 
 #include <exception>
+#include <filesystem>
 #include <fstream>
 #include <ostream>
 #include <stdexcept>
 #include <string>
+#include <system_error>
 
 namespace {
 constexpr int kSuccess = 0;
@@ -35,6 +37,18 @@ int report_usage_error(std::ostream& error) {
 int report_runtime_error(std::ostream& error, const std::string& message) {
     error << "error: " << message << '\n';
     return kRuntimeFailure;
+}
+
+bool paths_refer_to_same_file(
+    const std::filesystem::path& input_path,
+    const std::filesystem::path& output_path) {
+    if (input_path == output_path) {
+        return true;
+    }
+    std::error_code error;
+    const bool equivalent =
+        std::filesystem::equivalent(input_path, output_path, error);
+    return !error && equivalent;
 }
 
 void write_output_file(
@@ -68,7 +82,7 @@ int run_cli(
 
     const std::string& input_path = args[0];
     const bool writes_file = args.size() == 3;
-    if (writes_file && args[2] == input_path) {
+    if (writes_file && paths_refer_to_same_file(input_path, args[2])) {
         return report_runtime_error(
             standard_err,
             "output file must differ from input file '" + input_path + "'");

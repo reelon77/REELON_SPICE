@@ -589,6 +589,23 @@ CLI 保持应用层职责：打开文件、调用 `parse_circuit -> simulate -> 
 
 ---
 
+## 二十二、M08 示例、Python 波形工具与用户文档（2026-08-30，用户特殊授权）
+
+根据同一份特殊授权，AI 完成以下非核心工程内容：
+
+- `examples/divider_op.cir`、`examples/rc_transient.cir`、`examples/rl_transient.cir` 三份可运行网表；
+- `scripts/plot_transient.py`：使用标准库读取/校验 CSV，仅在实际绘图时延迟导入 matplotlib；
+- `README.md`：构建、CLI、CSV、绘图、语法、依赖和限制；
+- `tests/test_plot_transient.py` 的 6 个纯解析场景，以及三份 example 的真实进程 CTest 和机械 CMake 挂载；
+- `run_cli.cpp` 的同文件等价路径保护及对应测试扩充，避免 `input.cir` 与 `./input.cir` 这类别名误截断网表。
+
+本机 Python 3.9.6 可用但缺少 matplotlib。AI 遵守任务单，没有联网安装依赖；已实际验证 `--validate-only`
+可读取全部列和指定列，并验证实际绘图路径会返回 1、stderr 明确提示 matplotlib 依赖。
+
+本档没有实现 `.dc`、新源波形、变步长、稀疏化、GUI 或任何 M08 停车场事项。
+
+---
+
 ## 复盘节奏建议
 
 - **第一遍**（写完当天或次日）：读 `lu_decomposition` 全文 + 本文档 Q1–Q6，把答不上来的标出来。

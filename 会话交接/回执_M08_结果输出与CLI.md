@@ -1,10 +1,11 @@
-# 回执 · M08：结果输出与 CLI（进行中）
+# 回执 · M08：结果输出与 CLI
 
 > Task ID：`TS-M08-OUTPUT`
 > 执行日期：2026-08-29 起
 > 任务单：`会话交接/会话交接_M08_结果输出与CLI.md`
 > 启动提交：`578f370 docs: accept M07 and dispatch M08 output task`
-> 当前状态：第 0～3 档已通过；第 4 档尚未开始，全仓 148/148，M08 P0 已完成但尚未达到 P1 完成定义。
+> 完成日期：2026-08-30
+> 当前状态：第 0～4 档全部通过，全仓 152/152；已达到 M08 任务单 P1 完成定义，等待主会话复验和正式销项。
 
 ## 一、第 0 档：输出契约设计闸门
 
@@ -184,7 +185,8 @@ usage: TinySpice <netlist-file> [-o <output-file>]
 
 - 第 0 档只完成只读核对、设计教学和回执记录，没有修改实现、测试或 CMake。
 - 第 1 档 `Circuit`/parser 生产代码由用户亲手编写；AI 只写测试、参与登记和本回执。
-- 第 2～4 档尚未开始；不得把当前阶段回执解释为 M08 完成或主线正式销项。
+- 用户因秋招在即，于 2026-08-30 特殊授权 AI 直接完成 M08 剩余非核心部分；第 2～4 档的 AI 实现范围均已如实登记。
+- 本回执只能说明达到任务单完成定义，不能替代主会话复验或宣布主线正式销项。
 
 ## 四、第 1 档：Circuit 输出元数据
 
@@ -231,7 +233,7 @@ AI 在 `tests/test_parser.cpp` 新增 4 个 `CircuitMetadataTest`，并登记到
 - 全仓：由 124 增至 **128/128**，原回归全部保留。
 - `git diff --check`：通过。
 
-第 1 档达到任务单绿灯；第 2 档 writer 尚未开始。
+截至本档提交时，第 1 档达到任务单绿灯；随后进入第 2 档 writer。
 
 ## 五、第 2 档：可复用结果 writer
 
@@ -260,7 +262,7 @@ AI 在 `tests/test_parser.cpp` 新增 4 个 `CircuitMetadataTest`，并登记到
 - 全仓：由 128 增至 **136/136**，原回归全部保留。
 - `git diff --check`：通过。
 
-第 2 档达到任务单绿灯；第 3 档 CLI 尚未开始。
+截至本档提交时，第 2 档达到任务单绿灯；随后进入第 3 档 CLI。
 
 ## 六、第 3 档：CLI 端到端（P0）
 
@@ -293,4 +295,123 @@ TinySpice <netlist-file> -o <output-file>
 - 全仓：由 136 增至 **148/148**，原回归全部保留。
 - `git diff --check`：通过。
 
-第 0～3 档全部绿灯，M08 P0 达成；第 4 档示例、Python、README 与最终回执尚未开始。
+截至本档提交时，第 0～3 档全部绿灯、M08 P0 达成；随后进入第 4 档 P1 收口。
+
+## 七、第 4 档：示例、Python 波形与收口（P1）
+
+### 1. 输出文件安全
+
+- `-o <output-file>` 已在第 3 档贯通：只写文件、不复制 stdout，并检查 open、flush 和 close。
+- parser/simulator 成功后才创建或截断输出文件；早期失败不会破坏既有输出。
+- 最终审计把输入/输出保护从“路径文字相同”加强为 `std::filesystem::equivalent`：硬链接、符号链接或
+  `input.cir`/`./input.cir` 等别名指向同一文件时均拒绝，原网表保持不变。
+
+### 2. 三份可运行示例
+
+| 文件 | 分析 | 实际验收结果 |
+|------|------|--------------|
+| `examples/divider_op.cir` | `.op` 分压 | `V(1)=10`、`V(2)=8`、`I(v1)≈-2mA` |
+| `examples/rc_transient.cir` | RC `.tran` | `time=0/0.25/0.5`，`V(out)=0/0.4/0.72` |
+| `examples/rl_transient.cir` | RL `.tran` | branch 顺序 `[l1,v1]`，`I(l1)=0/0.5/0.75` |
+
+三份文件均由真实 `TinySpice` 进程运行；RC/RL 使用 `-o` 实际生成 CSV 后逐行核对。
+
+### 3. Python CSV/波形工具
+
+- 新增 `scripts/plot_transient.py`，标准库 `csv` 负责读取，固定识别 `time` 为横轴。
+- 未指定列时读取全部非 `time` 数值列；可在命令行指定一个或多个标签只画选中波形。
+- 缺文件、缺 `time`、缺指定列、重复列、空数据以及非数值/非有限数值均返回 1 并给出具体错误。
+- `--validate-only` 不导入 matplotlib，可完成无图形依赖的 CSV 验证；实际绘图支持交互窗口或 `-o` 图片文件。
+- 本机 Python 3.9.6 可用但未安装 matplotlib。按任务单没有联网安装；纯解析与语法链路已通过，实际绘图路径已验证
+  返回 1 并明确提示安装 matplotlib 或改用 `--validate-only`。
+
+### 4. README 与自动测试
+
+- README 已从单行占位扩充为从构建、`.op`、`.tran -o`、CSV 到 Python 波形的完整最小路径。
+- README 明确当前器件/指令/数值后缀、退出码、输出单位、依赖和固定步长/零初值等限制。
+- 新增三条 example 真实进程 CTest；新增一条 Python CTest，内部含 6 个 dependency-free 单元场景。
+- 第 4 档 CTest：**4/4** 通过；全仓由 148 增至 **152/152**，原 124 个基线回归全部保留。
+
+## 八、提交与测试增长
+
+| 档位 | 提交 | 测试累计 |
+|------|------|----------|
+| 启动基线 | `578f370` | 124/124 |
+| 第 0 档：设计契约 | `bf1bf3d docs: lock M08 output contract` | 124/124 |
+| 第 1 档：Circuit 元数据 | `9ff7618 feat: preserve circuit output metadata` | 128/128 |
+| 第 2 档：ostream writer | `235c432 feat: add simulation result writers` | 136/136 |
+| 第 3 档：CLI/P0 | `9ce390f feat: add TinySpice command line workflow` | 148/148 |
+| 第 4 档：examples/Python/README/P1 | 本回执所在提交 | 152/152 |
+
+M08 共新增 28 个 CTest 项：4 个 metadata、8 个 writer、9 个 CLI runner、3 个 CLI 真实进程、3 个 example
+真实进程和 1 个 Python 测试入口；Python 入口内部另含 6 个单元场景。
+
+## 九、最终格式与使用契约
+
+```text
+Circuit metadata
+  node_names[0] = "0"
+  x[i] -> V(node_names[i + 1])
+  x[(nodes - 1) + branch_id] -> I(branch_names[branch_id])
+
+.op
+  analysis: .op
+  V(name) = value
+  I(name) = value
+  newton_iterations = integer
+
+.tran CSV
+  time,V(node)...,I(branch)...
+```
+
+- 浮点使用 classic locale、`defaultfloat`、`max_digits10`；writer 不改写调用者格式状态。
+- 标签和列顺序由 parser 产生的 `Circuit` 元数据与 MNA 布局唯一决定，CLI/Python 不重新推导编号。
+- CLI 语法为 `TinySpice <netlist-file> [-o <output-file>]`；退出码固定为 0/1/2。
+
+最小复验命令：
+
+```bash
+cmake --build ./build
+ctest --test-dir ./build --output-on-failure
+./build/sandbox/TinySpice examples/divider_op.cir
+./build/sandbox/TinySpice examples/rc_transient.cir -o build/rc.csv
+./build/sandbox/TinySpice examples/rl_transient.cir -o build/rl.csv
+python3 scripts/plot_transient.py build/rc.csv --validate-only
+```
+
+安装 matplotlib 后，可运行：
+
+```bash
+python3 scripts/plot_transient.py build/rc.csv 'V(out)' -o build/rc-output.png
+```
+
+## 十、AI 参与与“改 A 漏 B”复盘
+
+- 第 1 档核心 `Circuit`/parser 由用户亲写；AI 的 4 条编号 review 被用户逐项修正并一次性核销，同一逻辑链
+  “改 A 漏 B”计数为 0。
+- 第 2 档起，用户基于秋招时间压力明确授权 AI 完成 M08 剩余非核心生产代码、工具、测试、CMake、文档和 Git；
+  具体文件与边界已登记 `docs/AI参与记录.md` 第 20～22 节。
+- CLI 首轮定向验证暴露两处测试预期问题：`max_digits10` 合法长尾不应按短文本比较，以及 CTest
+  `WILL_FAIL`/正则组合不适合该失败烟囱；均只修正测试方法，没有掩盖产品失败。
+- 最终审计主动发现路径别名仍可能指向输入文件，随后同步修改等价判断、扩充原测试和更新文档；未出现只改实现漏测试。
+- 全程每档绿灯后立即提交并推送，没有攒批；没有执行 M08 以外的下游代码或预研。
+
+## 十一、停车场（仅供主会话参考，不构成授权）
+
+1. `.dc` 单参数/多参数扫描与 parser 语法。
+2. `.op/.tran` 指令冲突和多分析任务列表。
+3. `.ic/UIC`、DC operating-point initialization。
+4. PULSE/SIN/PWL、变步长、梯形法、断点对齐。
+5. ngspice 自动对拍、稀疏 CSR 和性能基准。
+6. JSON/二进制输出、复杂 CSV 转义和大轨迹流式求解。
+7. GUI、Web、Hazel/ImGui 和交互式波形浏览器。
+8. `.dc` + worker 调度器的工业仿真农场演示。
+
+以上内容没有在本会话中选择、检查、预研或启动。
+
+## 十二、任务会话结论
+
+- M08 第 0～4 档均达到各自绿灯，P0/P1 完成定义全部满足。
+- 全仓 152/152，三份 example、stdout、`-o`、CSV 和 dependency-free Python 解析链路均已实跑。
+- 因本机缺 matplotlib，图片渲染按任务单允许的依赖分支记录为未在本机执行；缺依赖错误已实测。
+- 本结论是“达到 M08 任务单完成定义”，不代表主线正式销项；应由 `TinySpice｜MAIN｜主线管理` 复验。

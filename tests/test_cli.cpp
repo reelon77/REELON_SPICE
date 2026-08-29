@@ -209,15 +209,23 @@ TEST(CliRunnerFailureTest, ReportsParserAndSolverFailuresWithExitOne) {
 TEST(CliRunnerFailureTest, RejectsSameInputAndOutputWithoutTruncatingInput) {
     TempWorkspace files;
     const auto input = files.write("divider.cir", kDividerNetlist);
-    std::ostringstream output;
-    std::ostringstream error;
+    const std::vector<std::filesystem::path> aliases{
+        input,
+        input.parent_path() / "." / input.filename(),
+    };
 
-    EXPECT_EQ(
-        run_cli({input.string(), "-o", input.string()}, output, error),
-        1);
-    EXPECT_TRUE(output.str().empty());
-    EXPECT_NE(error.str().find("output file must differ"), std::string::npos);
-    EXPECT_EQ(read_text(input), kDividerNetlist);
+    for (const std::filesystem::path& output_path : aliases) {
+        SCOPED_TRACE(output_path.string());
+        std::ostringstream output;
+        std::ostringstream error;
+
+        EXPECT_EQ(
+            run_cli({input.string(), "-o", output_path.string()}, output, error),
+            1);
+        EXPECT_TRUE(output.str().empty());
+        EXPECT_NE(error.str().find("output file must differ"), std::string::npos);
+        EXPECT_EQ(read_text(input), kDividerNetlist);
+    }
 }
 
 TEST(CliRunnerFailureTest, ReportsOutputOpenFailureWithExitOne) {

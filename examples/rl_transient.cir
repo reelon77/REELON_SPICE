@@ -1,0 +1,5 @@
+L1 out 0 500m
+V1 in 0 2
+R1 in out 2
+.tran 250m 500m
+.end

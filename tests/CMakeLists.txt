@@ -93,3 +93,42 @@ add_test(
             "-DINPUT_PATH=${CMAKE_CURRENT_BINARY_DIR}/definitely-missing.cir"
             -P ${CMAKE_CURRENT_SOURCE_DIR}/check_cli_failure.cmake
 )
+
+add_test(
+    NAME ExampleOperatingPoint
+    COMMAND $<TARGET_FILE:TinySpice>
+            ${PROJECT_SOURCE_DIR}/examples/divider_op.cir
+)
+set_tests_properties(
+    ExampleOperatingPoint
+    PROPERTIES PASS_REGULAR_EXPRESSION "V\\(2\\) = 8"
+)
+
+add_test(
+    NAME ExampleRcTransient
+    COMMAND $<TARGET_FILE:TinySpice>
+            ${PROJECT_SOURCE_DIR}/examples/rc_transient.cir
+)
+set_tests_properties(
+    ExampleRcTransient
+    PROPERTIES PASS_REGULAR_EXPRESSION "time,V\\(in\\),V\\(out\\),I\\(v1\\)"
+)
+
+add_test(
+    NAME ExampleRlTransient
+    COMMAND $<TARGET_FILE:TinySpice>
+            ${PROJECT_SOURCE_DIR}/examples/rl_transient.cir
+)
+set_tests_properties(
+    ExampleRlTransient
+    PROPERTIES PASS_REGULAR_EXPRESSION "time,V\\(out\\),V\\(in\\),I\\(l1\\),I\\(v1\\)"
+)
+
+find_package(Python3 COMPONENTS Interpreter QUIET)
+if(Python3_Interpreter_FOUND)
+    add_test(
+        NAME PlotTransientParser
+        COMMAND ${Python3_EXECUTABLE}
+                ${CMAKE_CURRENT_SOURCE_DIR}/test_plot_transient.py
+    )
+endif()
