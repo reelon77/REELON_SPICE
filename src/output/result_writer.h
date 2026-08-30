@@ -13,6 +13,11 @@ void write_transient_csv(
     const Circuit& circuit,
     const TransientAnalysisResult& result);
 
+void write_dc_sweep_csv(
+    std::ostream& out,
+    const Circuit& circuit,
+    const DcSweepAnalysisResult& result);
+
 void write_simulation_result(
     std::ostream& out,
     const Circuit& circuit,

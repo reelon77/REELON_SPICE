@@ -1,0 +1,6 @@
+* Sweep a voltage source through a 1:1 divider.
+V1 in 0 0
+R1 in out 1k
+R2 out 0 1k
+.dc V1 0 2 1
+.end

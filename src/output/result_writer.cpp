@@ -9,6 +9,7 @@
 #include <stdexcept>
 #include <string>
 #include <type_traits>
+#include <unordered_set>
 #include <variant>
 
 namespace {
@@ -78,6 +79,17 @@ void configure_numeric_format(std::ostream& out) {
         << std::nouppercase
         << std::dec;
 }
+
+void write_solution_csv_header(
+    std::ostream& out,
+    const Circuit& circuit) {
+    for (std::size_t i = 1; i < circuit.node_names.size(); ++i) {
+        out << ",V(" << circuit.node_names[i] << ')';
+    }
+    for (const std::string& branch_name : circuit.branch_names) {
+        out << ",I(" << branch_name << ')';
+    }
+}
 } // namespace
 
 void write_operating_point(
@@ -128,16 +140,76 @@ void write_transient_csv(
     configure_numeric_format(formatted);
 
     formatted << "time";
-    for (std::size_t i = 1; i < circuit.node_names.size(); ++i) {
-        formatted << ",V(" << circuit.node_names[i] << ')';
-    }
-    for (const std::string& branch_name : circuit.branch_names) {
-        formatted << ",I(" << branch_name << ')';
-    }
+    write_solution_csv_header(formatted, circuit);
     formatted << '\n';
 
     for (const TransientPoint& point : result.trajectory) {
         formatted << point.time;
+        for (double value : point.x) {
+            formatted << ',' << value;
+        }
+        formatted << '\n';
+    }
+
+    ensure_write_succeeded(formatted);
+}
+
+void write_dc_sweep_csv(
+    std::ostream& out,
+    const Circuit& circuit,
+    const DcSweepAnalysisResult& result) {
+    const std::size_t expected_dimension =
+        validate_metadata_and_get_dimension(circuit);
+    if (result.source_names.size() != 1
+        && result.source_names.size() != 2) {
+        throw std::invalid_argument(
+            "DC sweep result must contain one or two source names");
+    }
+    std::unordered_set<std::string> unique_source_names;
+    for (const std::string& source_name : result.source_names) {
+        if (source_name.empty()) {
+            throw std::invalid_argument(
+                "DC sweep source names cannot be empty");
+        }
+        validate_csv_name(source_name);
+        if (!unique_source_names.insert(source_name).second) {
+            throw std::invalid_argument(
+                "DC sweep source names must be unique");
+        }
+    }
+    if (result.points.empty()) {
+        throw std::invalid_argument(
+            "DC sweep result must contain at least one point");
+    }
+    for (const DcSweepPoint& point : result.points) {
+        if (point.source_values.size() != result.source_names.size()) {
+            throw std::invalid_argument(
+                "DC sweep point values do not match source names");
+        }
+        validate_solution_dimension(point.x, expected_dimension);
+    }
+    validate_csv_names(circuit);
+    ensure_stream_ready(out);
+
+    std::ostream formatted(out.rdbuf());
+    configure_numeric_format(formatted);
+
+    for (std::size_t index = 0; index < result.source_names.size(); ++index) {
+        if (index != 0) {
+            formatted << ',';
+        }
+        formatted << "sweep(" << result.source_names[index] << ')';
+    }
+    write_solution_csv_header(formatted, circuit);
+    formatted << '\n';
+
+    for (const DcSweepPoint& point : result.points) {
+        for (std::size_t index = 0; index < point.source_values.size(); ++index) {
+            if (index != 0) {
+                formatted << ',';
+            }
+            formatted << point.source_values[index];
+        }
         for (double value : point.x) {
             formatted << ',' << value;
         }
@@ -160,8 +232,7 @@ void write_simulation_result(
                 std::is_same_v<ResultType, TransientAnalysisResult>) {
                 write_transient_csv(out, circuit, typed_result);
             } else {
-                throw std::invalid_argument(
-                    "DC sweep result writer is not implemented");
+                write_dc_sweep_csv(out, circuit, typed_result);
             }
         },
         result);

@@ -76,6 +76,13 @@ const std::string kRcNetlist =
     ".tran 250m 500m\n"
     ".end\n";
 
+const std::string kDcNetlist =
+    "V1 in 0 0\n"
+    "R1 in out 1k\n"
+    "R2 out 0 1k\n"
+    ".dc v1 0 2 1\n"
+    ".end\n";
+
 class FailingStreambuf : public std::streambuf {
 protected:
     int_type overflow(int_type) override {
@@ -126,6 +133,25 @@ TEST(CliRunnerSuccessTest, WritesTransientCsvToStdout) {
         "time,V(in),V(out),I(v1)");
     EXPECT_NE(output.str().find("0.25,2,0.40000000000000002"), std::string::npos);
     EXPECT_NE(output.str().find("0.5,2,0.71999999999999997"), std::string::npos);
+}
+
+TEST(CliRunnerSuccessTest, WritesDcSweepCsvToStdout) {
+    TempWorkspace files;
+    const auto input = files.write("divider-dc.cir", kDcNetlist);
+    std::ostringstream output;
+    std::ostringstream error;
+
+    const int code = run_cli({input.string()}, output, error);
+
+    EXPECT_EQ(code, 0);
+    EXPECT_TRUE(error.str().empty());
+    EXPECT_EQ(
+        output.str().substr(0, output.str().find('\n')),
+        "sweep(v1),V(in),V(out),I(v1)");
+    EXPECT_NE(
+        output.str().find("1,1,0.5,-0.00050000000000000001\n"),
+        std::string::npos);
+    EXPECT_NE(output.str().find("2,2,1,-0.001\n"), std::string::npos);
 }
 
 TEST(CliRunnerSuccessTest, WritesOutputFileWithoutDuplicatingStdout) {
@@ -204,6 +230,23 @@ TEST(CliRunnerFailureTest, ReportsParserAndSolverFailuresWithExitOne) {
         EXPECT_TRUE(output.str().empty());
         EXPECT_NE(error.str().find(fragment), std::string::npos);
     }
+}
+
+TEST(CliRunnerFailureTest, ReportsDcPointContextWithExitOne) {
+    TempWorkspace files;
+    const auto input = files.write(
+        "singular-dc.cir",
+        "V1 driven 0 0\n"
+        "RFloat a b 1k\n"
+        ".dc v1 0 1 1\n"
+        ".end\n");
+    std::ostringstream output;
+    std::ostringstream error;
+
+    EXPECT_EQ(run_cli({input.string()}, output, error), 1);
+    EXPECT_TRUE(output.str().empty());
+    EXPECT_NE(error.str().find("DC sweep point 1"), std::string::npos);
+    EXPECT_NE(error.str().find("v1=0"), std::string::npos);
 }
 
 TEST(CliRunnerFailureTest, RejectsSameInputAndOutputWithoutTruncatingInput) {

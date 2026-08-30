@@ -31,6 +31,15 @@ Circuit rc_circuit() {
     return circuit;
 }
 
+Circuit double_source_circuit() {
+    Circuit circuit;
+    circuit.nodes = 3;
+    circuit.num_branch_unknowns = 2;
+    circuit.node_names = {"0", "a", "b"};
+    circuit.branch_names = {"v1", "v2"};
+    return circuit;
+}
+
 std::vector<std::string> split_lines(const std::string& text) {
     std::istringstream input(text);
     std::vector<std::string> lines;
@@ -125,6 +134,86 @@ TEST(ResultWriterTransientTest, WritesStableHeaderAndHandCalculatedRcRows) {
     }
 }
 
+TEST(ResultWriterDcTest, WritesSingleSweepHeaderAndHandCalculatedRows) {
+    Circuit circuit = divider_circuit();
+    const DcSweepAnalysisResult result{
+        {"v1"},
+        {
+            {{0.0}, {0.0, 0.0, 0.0}, 1},
+            {{1.0}, {1.0, 0.5, -0.5e-3}, 2},
+            {{2.0}, {2.0, 1.0, -1e-3}, 2},
+        },
+    };
+    std::ostringstream output;
+
+    write_dc_sweep_csv(output, circuit, result);
+
+    const std::vector<std::string> lines = split_lines(output.str());
+    ASSERT_EQ(lines.size(), 4u);
+    EXPECT_EQ(lines[0], "sweep(v1),V(1),V(2),I(v1)");
+    const std::vector<std::vector<double>> expected{
+        {0.0, 0.0, 0.0, 0.0},
+        {1.0, 1.0, 0.5, -0.5e-3},
+        {2.0, 2.0, 1.0, -1e-3},
+    };
+    for (std::size_t row = 0; row < expected.size(); ++row) {
+        EXPECT_EQ(parse_csv_row(lines[row + 1]), expected[row]);
+    }
+}
+
+TEST(ResultWriterDcTest, PreservesDoubleSweepPointOrder) {
+    Circuit circuit = double_source_circuit();
+    const DcSweepAnalysisResult result{
+        {"v1", "v2"},
+        {
+            {{1.0, 10.0}, {1.0, 10.0, -1e-3, -5e-3}, 2},
+            {{2.0, 10.0}, {2.0, 10.0, -2e-3, -5e-3}, 2},
+            {{1.0, 20.0}, {1.0, 20.0, -1e-3, -10e-3}, 2},
+            {{2.0, 20.0}, {2.0, 20.0, -2e-3, -10e-3}, 2},
+        },
+    };
+    std::ostringstream output;
+
+    write_dc_sweep_csv(output, circuit, result);
+
+    const std::vector<std::string> lines = split_lines(output.str());
+    ASSERT_EQ(lines.size(), 5u);
+    EXPECT_EQ(lines[0], "sweep(v1),sweep(v2),V(a),V(b),I(v1),I(v2)");
+    EXPECT_EQ(
+        parse_csv_row(lines[1]),
+        (std::vector<double>{1.0, 10.0, 1.0, 10.0, -1e-3, -5e-3}));
+    EXPECT_EQ(
+        parse_csv_row(lines[4]),
+        (std::vector<double>{2.0, 20.0, 2.0, 20.0, -2e-3, -10e-3}));
+}
+
+TEST(ResultWriterDcValidationTest, RejectsInvalidShapeBeforeWritingAnything) {
+    Circuit circuit = divider_circuit();
+    std::ostringstream output;
+
+    const std::vector<DcSweepAnalysisResult> invalid_results{
+        {{}, {{{0.0}, {0.0, 0.0, 0.0}, 1}}},
+        {{"v1", "v2", "v3"}, {{{0.0, 0.0, 0.0}, {0.0, 0.0, 0.0}, 1}}},
+        {{""}, {{{0.0}, {0.0, 0.0, 0.0}, 1}}},
+        {{"v1", "v1"}, {{{0.0, 0.0}, {0.0, 0.0, 0.0}, 1}}},
+        {{"bad,name"}, {{{0.0}, {0.0, 0.0, 0.0}, 1}}},
+        {{"v1"}, {}},
+        {{"v1"}, {{{0.0, 1.0}, {0.0, 0.0, 0.0}, 1}}},
+        {{"v1"}, {
+            {{0.0}, {0.0, 0.0, 0.0}, 1},
+            {{1.0}, {1.0, 0.5}, 2},
+        }},
+    };
+
+    for (const DcSweepAnalysisResult& result : invalid_results) {
+        SCOPED_TRACE(testing::PrintToString(result.source_names));
+        EXPECT_THROW(
+            write_dc_sweep_csv(output, circuit, result),
+            std::invalid_argument);
+        EXPECT_TRUE(output.str().empty());
+    }
+}
+
 TEST(ResultWriterValidationTest, RejectsMetadataMismatchBeforeWriting) {
     Circuit circuit = divider_circuit();
     circuit.node_names.pop_back();
@@ -212,10 +301,11 @@ TEST(ResultWriterStreamTest, ThrowsWhenDestinationCannotAcceptWrites) {
         std::runtime_error);
 }
 
-TEST(ResultWriterDispatchTest, RoutesBothVariantAlternatives) {
+TEST(ResultWriterDispatchTest, RoutesAllVariantAlternatives) {
     Circuit circuit = rc_circuit();
     std::ostringstream op_output;
     std::ostringstream transient_output;
+    std::ostringstream dc_output;
 
     write_simulation_result(
         op_output,
@@ -225,9 +315,16 @@ TEST(ResultWriterDispatchTest, RoutesBothVariantAlternatives) {
         transient_output,
         circuit,
         TransientAnalysisResult{{{0.0, {0.0, 0.0, 0.0}}}});
+    write_simulation_result(
+        dc_output,
+        circuit,
+        DcSweepAnalysisResult{{"v1"}, {{{0.0}, {0.0, 0.0, 0.0}, 1}}});
 
     EXPECT_NE(op_output.str().find("analysis: .op\n"), std::string::npos);
     EXPECT_NE(
         transient_output.str().find("time,V(in),V(out),I(v1)\n"),
+        std::string::npos);
+    EXPECT_NE(
+        dc_output.str().find("sweep(v1),V(in),V(out),I(v1)\n"),
         std::string::npos);
 }

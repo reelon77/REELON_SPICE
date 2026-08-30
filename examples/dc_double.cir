@@ -1,0 +1,7 @@
+* The second source is the outer loop; V1 is the inner loop.
+V1 a 0 0
+R1 a 0 1k
+V2 b 0 0
+R2 b 0 2k
+.dc V1 1 2 1 V2 10 20 10
+.end

@@ -1,0 +1,5 @@
+* Descending current sweep: KCL gives V(out) = -I1 * 1k.
+I1 out 0 0
+R1 out 0 1k
+.dc I1 2m 0 -1m
+.end

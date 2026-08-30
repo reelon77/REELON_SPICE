@@ -141,7 +141,7 @@ AI 设计/实现范围：
 
 > 日期：2026-08-30
 > Task ID：`TS-M09-DC`
-> 状态：第 0～3 档已完成；第 4 档待执行
+> 状态：第 0～4 档已完成；待 Git 最终收口与主会话验收
 
 - 目标与范围：在不修改 `const Circuit` 内器件的前提下，完成类型化 `.op/.tran/.dc` 请求、全局唯一器件身份、独立 V/I 源局部克隆覆盖、单/双源扫描、结构化结果及 CSV/CLI。
 - 第 0 档 AI 设计：选择具名 struct + `std::variant` 作为唯一分析 IR；`device_names` 与 `devices` 一一对应；`.dc` 前向引用在解析结束后绑定到 `IndependentSource`；每点仅克隆被扫源并替换非拥有视图；整数步号生成扫描序列；双源为 source2 外层。
@@ -160,7 +160,15 @@ AI 设计/实现范围：
 - 第 3 档 AI 生产代码：修改 `src/sim/simulate.h` 新增 DC point/result 并扩展 result variant；修改 `src/sim/simulate.cpp`，新增源绑定防御、单/双层扫描、局部 clone 覆盖、延续初值、点数溢出检查和带点/源值的失败传播；`src/output/result_writer.cpp` 暂时增加 DC 穷尽分支以避免 variant 误分派，完整 writer 留第 4 档。未修改 Newton、器件 stamp、MNA、LU 或 transient。
 - 第 3 档 AI 测试：修改 `tests/test_simulate.cpp`，新增 7 个测试，使用分压/KCL/双源手算 oracle、Newton 初值 probe、二极管 KCL 残差+单点参考、重复调用和失败上下文验证契约。
 - 第 3 档验证：controller 16/16；先构建再全仓测试 171/171。
-- 第 3 档提交：待本档提交后在 M09 最终收口回填精确 hash。
+- 第 3 档提交：`f2307ca feat: execute dc sweep analyses`。
+- 第 4 档 AI 生产代码：修改 `src/output/result_writer.h/.cpp`，新增 DC CSV 的写前完整形状/名称/维度校验、`sweep(source)` 列和 `.op/.tran/.dc` 穷尽分派；CLI runner 不增加分析逻辑，直接消费结构化 result。
+- 第 4 档 AI 测试/工程：修改 `tests/test_result_writer.cpp`、`tests/test_cli.cpp`、`tests/CMakeLists.txt`；新建 `tests/fixtures/cli_dc.cir`；覆盖单/双源 writer、八类写前失败、三类 variant、CLI DC 成功/失败、DC 真实进程和三份 example。
+- 第 4 档 AI examples/文档：新建 `examples/dc_divider.cir`、`examples/dc_double.cir`、`examples/dc_current_descending.cir`；修改 `README.md` 写明语法、运行、CSV、Python/MATLAB 消费和限制；完成 M09 回执与本台账归属清单。
+- 第 4 档 AI 修正：首次 CLI 测试使用短小数 `-0.0005` 期待，与 writer 的可往返 `double` 精度契约不符；修正测试期待为实际稳定文本，未降低生产输出精度。
+- 第 4 档独立只读复核与修正：复核发现第 2 档扫描容差以 `1.0` 为尺度下限，会破坏极小区间和大偏置小步长。AI 修改 `src/parser/Circuit.cpp::generate_dc_sweep_values`，改用 stop ULP/机器 epsilon 量级且由 `|step|/4` 封顶的边界容差，命中 stop 后结束并保证严格单调无重复；修改 `src/sim/simulate.cpp::validate_device_identity/simulate_dc_sweep`，拒绝手工 Circuit 的 null、空名、大写、重名及双轴同源。
+- 第 4 档复核测试：修改 `tests/test_parser.cpp`，加入显式 `.dc v1 0 1p 0.1p` 和 `1e12` 大偏置小区间的 11 点严格递增回归；修改 `tests/test_simulate.cpp`，加入 null/重名/未规范化身份及手工双轴同名拒绝。该问题在第 4 档提交前被捕获和修复，未进入已推送的最终实现提交。
+- 第 4 档验证：parser 45/45，controller 17/17，writer 11/11，CLI 函数级 11/11，DC 真实进程/examples 4/4，先构建再全仓 182/182；三份 DC examples 手工实跑；单源 CSV 通过 Python 标准库和 MATLAB R2026a `readtable` 实机回读断言。
+- 第 4 档提交：待本档提交后由 M09 纯文档收口回填精确 hash。
 
 ## 六、已确认的后续工具路线
 

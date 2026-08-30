@@ -190,6 +190,49 @@ TEST(SimulationControllerValidationTest, RejectsDeviceIdentityMismatch) {
     EXPECT_THROW(simulate(circuit), std::invalid_argument);
 }
 
+TEST(SimulationControllerValidationTest, RejectsInvalidHandBuiltDeviceIdentity) {
+    {
+        std::istringstream input(
+            "V1 1 0 1\n"
+            "R1 1 0 1k\n"
+            ".op\n"
+            ".end\n");
+        Circuit circuit = parse_circuit(input);
+        circuit.devices[0].reset();
+        EXPECT_THROW(simulate(circuit), std::invalid_argument);
+    }
+    {
+        std::istringstream input(
+            "V1 1 0 1\n"
+            "R1 1 0 1k\n"
+            ".op\n"
+            ".end\n");
+        Circuit circuit = parse_circuit(input);
+        circuit.device_names[1] = circuit.device_names[0];
+        EXPECT_THROW(simulate(circuit), std::invalid_argument);
+    }
+    {
+        std::istringstream input(
+            "V1 1 0 1\n"
+            ".op\n"
+            ".end\n");
+        Circuit circuit = parse_circuit(input);
+        circuit.device_names[0] = "V1";
+        EXPECT_THROW(simulate(circuit), std::invalid_argument);
+    }
+    {
+        std::istringstream input(
+            "V1 a 0 0\n"
+            "V2 b 0 0\n"
+            ".dc v1 0 1 1 v2 0 1 1\n"
+            ".end\n");
+        Circuit circuit = parse_circuit(input);
+        auto& analysis = std::get<DcSweepAnalysis>(circuit.analysis);
+        analysis.secondary->source_name = analysis.primary.source_name;
+        EXPECT_THROW(simulate(circuit), std::invalid_argument);
+    }
+}
+
 TEST(SimulationControllerLifetimeTest, RepeatedTransientCallsDoNotShareWorkspaceOrHistory) {
     std::istringstream input(
         "V1 in 0 2\n"

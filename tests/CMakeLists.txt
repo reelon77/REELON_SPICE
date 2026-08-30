@@ -87,6 +87,16 @@ set_tests_properties(
 )
 
 add_test(
+    NAME CliProcessDcSmoke
+    COMMAND $<TARGET_FILE:TinySpice>
+            ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/cli_dc.cir
+)
+set_tests_properties(
+    CliProcessDcSmoke
+    PROPERTIES PASS_REGULAR_EXPRESSION "sweep\\(v1\\),V\\(in\\),V\\(out\\),I\\(v1\\)"
+)
+
+add_test(
     NAME CliProcessMissingFileSmoke
     COMMAND ${CMAKE_COMMAND}
             "-DTINYSPICE_EXE=$<TARGET_FILE:TinySpice>"
@@ -122,6 +132,36 @@ add_test(
 set_tests_properties(
     ExampleRlTransient
     PROPERTIES PASS_REGULAR_EXPRESSION "time,V\\(out\\),V\\(in\\),I\\(l1\\),I\\(v1\\)"
+)
+
+add_test(
+    NAME ExampleDcDivider
+    COMMAND $<TARGET_FILE:TinySpice>
+            ${PROJECT_SOURCE_DIR}/examples/dc_divider.cir
+)
+set_tests_properties(
+    ExampleDcDivider
+    PROPERTIES PASS_REGULAR_EXPRESSION "1,1,0.5,-0.0005"
+)
+
+add_test(
+    NAME ExampleDcDouble
+    COMMAND $<TARGET_FILE:TinySpice>
+            ${PROJECT_SOURCE_DIR}/examples/dc_double.cir
+)
+set_tests_properties(
+    ExampleDcDouble
+    PROPERTIES PASS_REGULAR_EXPRESSION "2,20,2,20,-0.002,-0.01"
+)
+
+add_test(
+    NAME ExampleDcCurrentDescending
+    COMMAND $<TARGET_FILE:TinySpice>
+            ${PROJECT_SOURCE_DIR}/examples/dc_current_descending.cir
+)
+set_tests_properties(
+    ExampleDcCurrentDescending
+    PROPERTIES PASS_REGULAR_EXPRESSION "0,0"
 )
 
 find_package(Python3 COMPONENTS Interpreter QUIET)

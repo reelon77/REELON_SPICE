@@ -1,6 +1,6 @@
 # TinySpice
 
-TinySpice 是一个学习用途的 C++ SPICE 子集：读取网表，执行直流工作点或固定步长瞬态分析，并把结果输出为带电路标签的文本或 CSV。
+TinySpice 是一个学习用途的 C++ SPICE 子集：读取网表，执行直流工作点、单/双源直流扫描或固定步长瞬态分析，并把结果输出为带电路标签的文本或 CSV。
 
 ## 构建与测试
 
@@ -39,6 +39,38 @@ TinySpice <netlist-file> -o <output-file>
 ```
 
 CSV 第一列固定为 `time`（秒），之后依次是 `V(node)` 和 `I(branch)`。标签顺序与 MNA 未知量顺序一致；数值使用 C locale 和可往返的 `double` 精度。
+
+运行单源、双源或降序 `.dc` 示例：
+
+```bash
+./build/sandbox/TinySpice examples/dc_divider.cir -o build/dc-divider.csv
+./build/sandbox/TinySpice examples/dc_double.cir -o build/dc-double.csv
+./build/sandbox/TinySpice examples/dc_current_descending.cir
+```
+
+DC CSV 的开头为一个或两个 `sweep(source)` 列，随后仍是全部 `V(node)` 和 `I(branch)`。双源时第二源为外层，每个第二源值下完整遍历第一源。扫描值使用整数步号生成；不整除时不附加 stop，也不缩短末步。
+
+可以用 Python 标准库读取 DC CSV：
+
+```python
+import csv
+
+with open("build/dc-divider.csv", newline="") as stream:
+    rows = list(csv.DictReader(stream))
+
+x = [float(row["sweep(v1)"]) for row in rows]
+vout = [float(row["V(out)"]) for row in rows]
+```
+
+或在 MATLAB 中交互绘制传输曲线：
+
+```matlab
+data = readtable("build/dc-divider.csv", "VariableNamingRule", "preserve");
+plot(data.("sweep(v1)"), data.("V(out)"), "o-");
+xlabel("V1 (V)");
+ylabel("V(out) (V)");
+grid on;
+```
 
 ## 绘制瞬态波形
 
@@ -96,7 +128,8 @@ plot_transient("build/rc.csv", ["V(out)", "I(v1)"], ...
 
 - 元件：`R`、独立 DC `V`、独立 DC `I`、`D`、`C`、`L`。
 - `R/V/I/C/L` 行为 `name node+ node- value`；二极管行为 `name node+ node-`，当前使用内置模型参数。
-- 分析指令：`.op` 或 `.tran <tstep> <tstop>`；`.end` 结束读取。
+- 分析指令：`.op`、`.tran <tstep> <tstop>`、`.dc <source> <start> <stop> <step>`，或在 `.dc` 后再追加同格式的第二源；`.end` 结束读取。
+- `.dc` 只能引用唯一的独立 V/I 源，允许写在源定义之前；支持正步长升序和负步长降序。
 - 完整行注释以 `*` 开头；名称和指令不区分大小写，输出标签统一为小写。
 - 数值支持普通/科学计数法及 `k`、`meg`、`g`、`t`、`m`、`u`、`n`、`p`、`f` 后缀。
 
@@ -104,7 +137,8 @@ plot_transient("build/rc.csv", ["V(out)", "I(v1)"], ...
 
 ## 明确限制
 
-- 每份网表只执行一个分析；尚不支持 `.dc`、分析任务列表或 `.op/.tran` 冲突诊断。
+- 每份网表只执行一个 `.op/.dc/.tran`；重复或冲突指令会带行号报错，尚不支持分析任务列表。
+- `.dc` 只扫描一个或两个独立 V/I 源；尚不支持电阻/TEMP、list/dec/oct 或三层以上 DC 扫描。
 - 瞬态分析采用固定步长后向欧拉，并从全零状态的 `t=0` 点开始；尚无 `.ic`/UIC、DC 工作点初始化、变步长或梯形法。
 - `.tran` 的 `tstop/tstep` 必须在浮点容差内为整数，当前不会自动缩短最后一步。
 - 独立源只有常量 DC 值；尚无 PULSE、SIN、PWL。

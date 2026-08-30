@@ -6,18 +6,52 @@
 #include "solver/newton.h"
 #include "solver/transient.h"
 
+#include <algorithm>
 #include <iomanip>
+#include <cctype>
 #include <limits>
 #include <locale>
 #include <memory>
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <unordered_set>
 #include <utility>
 #include <variant>
 #include <vector>
 
 namespace {
+void validate_device_identity(const Circuit& circuit) {
+    if (circuit.device_names.size() != circuit.devices.size()) {
+        throw std::invalid_argument(
+            "Circuit device names must correspond one-to-one with devices");
+    }
+    std::unordered_set<std::string> unique_names;
+    for (std::size_t index = 0; index < circuit.devices.size(); ++index) {
+        if (circuit.devices[index] == nullptr) {
+            throw std::invalid_argument("Circuit devices cannot be null");
+        }
+        const std::string& name = circuit.device_names[index];
+        if (name.empty()) {
+            throw std::invalid_argument("Circuit device names cannot be empty");
+        }
+        const bool has_uppercase = std::any_of(
+            name.begin(),
+            name.end(),
+            [](unsigned char character) {
+                return std::isupper(character) != 0;
+            });
+        if (has_uppercase) {
+            throw std::invalid_argument(
+                "Circuit device names must be normalized to lowercase");
+        }
+        if (!unique_names.insert(name).second) {
+            throw std::invalid_argument(
+                "Circuit device names must be globally unique");
+        }
+    }
+}
+
 const IndependentSource& resolve_dc_source(
     const Circuit& circuit,
     const DcSweepAxis& axis) {
@@ -67,8 +101,9 @@ DcSweepAnalysisResult simulate_dc_sweep(
         resolve_dc_source(circuit, analysis.primary);
     const IndependentSource* secondary_source = nullptr;
     if (analysis.secondary) {
-        if (analysis.primary.device_index
-            == analysis.secondary->device_index) {
+        if (analysis.primary.device_index == analysis.secondary->device_index
+            || analysis.primary.source_name
+                == analysis.secondary->source_name) {
             throw std::invalid_argument(
                 "DC sweep sources must refer to different devices");
         }
@@ -147,10 +182,7 @@ DcSweepAnalysisResult simulate_dc_sweep(
 } // namespace
 
 SimulationResult simulate(const Circuit& circuit) {
-    if (circuit.device_names.size() != circuit.devices.size()) {
-        throw std::invalid_argument(
-            "Circuit device names must correspond one-to-one with devices");
-    }
+    validate_device_identity(circuit);
     std::vector<Device*> device_view;
     device_view.reserve(circuit.devices.size());
     for (const auto& ptr : circuit.devices) {

@@ -51,20 +51,43 @@ std::vector<double> generate_dc_sweep_values(
         if (!std::isfinite(value)) {
             throw std::overflow_error("DC sweep value overflowed");
         }
-        const double tolerance = 1e-12 * std::max({
-            1.0,
+        const double scale = std::max({
             std::abs(start),
             std::abs(stop),
             std::abs(value),
         });
+        const double adjacent_stop = std::nextafter(
+            stop,
+            ascending
+                ? std::numeric_limits<double>::infinity()
+                : -std::numeric_limits<double>::infinity());
+        const double stop_ulp = std::abs(adjacent_stop - stop);
+        const double roundoff_tolerance = std::max(
+            4.0 * stop_ulp,
+            8.0 * std::numeric_limits<double>::epsilon() * scale);
+        const double tolerance = std::min(
+            std::abs(step) / 4.0,
+            roundoff_tolerance);
         const bool past_stop = ascending
             ? value > stop + tolerance
             : value < stop - tolerance;
         if (past_stop) {
             break;
         }
-        values.push_back(
-            std::abs(value - stop) <= tolerance ? stop : value);
+        if (std::abs(value - stop) <= tolerance) {
+            values.push_back(stop);
+            break;
+        }
+        if (!values.empty()) {
+            const bool advances = ascending
+                ? value > values.back()
+                : value < values.back();
+            if (!advances) {
+                throw std::overflow_error(
+                    "DC sweep step cannot advance value");
+            }
+        }
+        values.push_back(value);
         if (index == std::numeric_limits<std::size_t>::max()) {
             throw std::overflow_error("DC sweep has too many points");
         }

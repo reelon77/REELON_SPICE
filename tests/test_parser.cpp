@@ -448,6 +448,37 @@ TEST(DcSweepSequenceTest, GeneratesAscendingDescendingAndNonDivisibleRanges) {
         (std::vector<double>{1.0}));
 }
 
+TEST(DcSweepSequenceTest, PreservesTinyAndLargeOffsetSmallStepRanges) {
+    std::istringstream input(
+        "V1 n 0 0\n"
+        ".dc v1 0 1p 0.1p\n"
+        ".end\n");
+    const Circuit tiny_circuit = parse_circuit(input);
+    const auto& tiny_analysis =
+        std::get<DcSweepAnalysis>(tiny_circuit.analysis);
+    const std::vector<double> tiny = generate_dc_sweep_values(
+        tiny_analysis.primary.start,
+        tiny_analysis.primary.stop,
+        tiny_analysis.primary.step);
+    ASSERT_EQ(tiny.size(), 11u);
+    EXPECT_DOUBLE_EQ(tiny.front(), 0.0);
+    EXPECT_DOUBLE_EQ(tiny.back(), 1e-12);
+    for (std::size_t index = 1; index < tiny.size(); ++index) {
+        EXPECT_GT(tiny[index], tiny[index - 1]);
+    }
+
+    const double large_start = 1e12;
+    const double large_stop = large_start + 0.1;
+    const std::vector<double> large =
+        generate_dc_sweep_values(large_start, large_stop, 0.01);
+    ASSERT_EQ(large.size(), 11u);
+    EXPECT_DOUBLE_EQ(large.front(), large_start);
+    EXPECT_DOUBLE_EQ(large.back(), large_stop);
+    for (std::size_t index = 1; index < large.size(); ++index) {
+        EXPECT_GT(large[index], large[index - 1]);
+    }
+}
+
 TEST(DcSweepSequenceTest, RejectsZeroWrongDirectionAndNonFiniteValues) {
     EXPECT_THROW(
         generate_dc_sweep_values(0.0, 1.0, 0.0),
