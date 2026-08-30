@@ -173,6 +173,21 @@ AI 设计/实现范围：
 - 主会话独立验收：重新构建成功；M09 定向 23/23、全仓 182/182；三份 DC examples 手工实跑并核对点数、嵌套顺序和数值；`git diff --check fb6bba8..8280d40` 通过，未发现新的阻塞问题。
 - 主会话结论：`TS-M09-DC` 正式销项；当前活动任务置空，未创建或启动 M10。
 
+### `AI-0005`：TinySpice CLI 自动调用 MATLAB 批处理绘图
+
+> 日期：2026-08-30
+> Task ID：`TS-M08-MATLAB-BATCH`
+> 类型：M08 波形工具后续工程化
+
+- 目标与范围：用户选择“C++ 生成 CSV 后通过 `matlab -batch` 自动绘图”；只扩展 CLI 可选后处理，不修改 `SpiceLib`、仿真算法、CSV 契约或 MATLAB 绘图函数。
+- AI 设计：新增 `--matlab-plot <image-file>`，要求同时提供 `-o <csv-file>` 且分析必须为 `.tran`；先完整提交 CSV，再启动 MATLAB，因此绘图失败不会丢失仿真结果。输入、CSV 和图片路径必须互不指向同一文件。
+- AI 生产代码：新建 `sandbox/cli/matlab_plot.h/.cpp`，使用无 shell 的子进程参数调用 `matlab -batch`；支持环境变量显式路径、macOS 应用目录自动发现和 `PATH` 回退。修改 `sandbox/cli/run_cli.h/.cpp` 增加参数解析、分析类型闸门、错误传播和可注入测试边界；修改 `sandbox/CMakeLists.txt` 挂载实现并记录脚本目录。
+- AI 测试：修改 `tests/test_cli.cpp`，新增 CSV 先写后调用、参数顺序、MATLAB 失败保留 CSV、非瞬态写前拒绝、路径冲突五项测试，并扩充非法参数矩阵。
+- AI 文档：修改 `README.md`，记录自动运行方式、查找顺序、错误语义和分布式 Worker 边界。
+- 明确未修改：全部 `src/`、`scripts/plot_transient.m`、Python 工具、求解器、器件和结果 writer。
+- 实机验证：本机自动发现 `/Users/reelon/Applications/MATLAB/MATLAB_R2026a.app`，真实 RC 仿真经单条 CLI 命令成功生成 CSV 和 1274×820 PNG，目视确认三条波形、坐标和图例正确；用不存在的 MATLAB 路径验证退出码 1、CSV 保留且无图片。
+- 自动测试：CLI 定向 20/20、全仓 187/187；`git diff --check` 通过。提交 hash 待阶段提交后由纯文档提交回填。
+
 ## 六、已确认的后续工具路线
 
 2026-08-30 用户确认采用双路线：
@@ -180,3 +195,4 @@ AI 设计/实现范围：
 - `scripts/plot_transient.py` 是仓库的自动校验、CI 友好和跨平台绘图入口；
 - `scripts/plot_transient.m` 是 MATLAB 环境中的交互分析伴侣；
 - 二者只消费同一份 TinySpice CSV，不改变仿真内核、CLI 或 CSV 契约。
+- CLI 的 `--matlab-plot` 是可选自动后处理入口，仍通过 CSV 调用 MATLAB，不把 MATLAB 依赖引入 `SpiceLib` 或分布式 Worker。

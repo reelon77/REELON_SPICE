@@ -174,10 +174,145 @@ TEST(CliRunnerSuccessTest, WritesOutputFileWithoutDuplicatingStdout) {
     EXPECT_NE(written.find("V(2) = 8\n"), std::string::npos);
 }
 
+TEST(CliRunnerMatlabTest, WritesTransientCsvBeforeInvokingPlotRunner) {
+    TempWorkspace files;
+    const auto input = files.write("rc.cir", kRcNetlist);
+    const auto csv_path = files.path("result.csv");
+    const auto image_path = files.path("result.png");
+    std::ostringstream output;
+    std::ostringstream error;
+    bool invoked = false;
+
+    const int code = run_cli(
+        {
+            input.string(),
+            "-o",
+            csv_path.string(),
+            "--matlab-plot",
+            image_path.string(),
+        },
+        output,
+        error,
+        [&](const std::filesystem::path& actual_csv,
+            const std::filesystem::path& actual_image) {
+            invoked = true;
+            EXPECT_EQ(actual_csv, csv_path);
+            EXPECT_EQ(actual_image, image_path);
+            EXPECT_EQ(
+                read_text(actual_csv).substr(
+                    0,
+                    read_text(actual_csv).find('\n')),
+                "time,V(in),V(out),I(v1)");
+            std::ofstream image(actual_image);
+            image << "fake MATLAB image";
+        });
+
+    EXPECT_EQ(code, 0);
+    EXPECT_TRUE(invoked);
+    EXPECT_TRUE(output.str().empty());
+    EXPECT_TRUE(error.str().empty());
+    EXPECT_EQ(read_text(image_path), "fake MATLAB image");
+}
+
+TEST(CliRunnerMatlabTest, AcceptsPlotAndOutputOptionsInEitherOrder) {
+    TempWorkspace files;
+    const auto input = files.write("rc.cir", kRcNetlist);
+    const auto csv_path = files.path("result.csv");
+    const auto image_path = files.path("result.png");
+    std::ostringstream output;
+    std::ostringstream error;
+    bool invoked = false;
+
+    const int code = run_cli(
+        {
+            input.string(),
+            "--matlab-plot",
+            image_path.string(),
+            "-o",
+            csv_path.string(),
+        },
+        output,
+        error,
+        [&](const auto&, const auto&) { invoked = true; });
+
+    EXPECT_EQ(code, 0);
+    EXPECT_TRUE(invoked);
+    EXPECT_TRUE(error.str().empty());
+}
+
+TEST(CliRunnerMatlabTest, ReportsPlotFailureAndPreservesCsv) {
+    TempWorkspace files;
+    const auto input = files.write("rc.cir", kRcNetlist);
+    const auto csv_path = files.path("result.csv");
+    const auto image_path = files.path("result.png");
+    std::ostringstream output;
+    std::ostringstream error;
+
+    const int code = run_cli(
+        {
+            input.string(),
+            "-o",
+            csv_path.string(),
+            "--matlab-plot",
+            image_path.string(),
+        },
+        output,
+        error,
+        [](const auto&, const auto&) {
+            throw std::runtime_error(
+                "MATLAB plotting failed with exit code 7");
+        });
+
+    EXPECT_EQ(code, 1);
+    EXPECT_TRUE(output.str().empty());
+    EXPECT_NE(
+        error.str().find("MATLAB plotting failed with exit code 7"),
+        std::string::npos);
+    EXPECT_TRUE(std::filesystem::is_regular_file(csv_path));
+    EXPECT_FALSE(std::filesystem::exists(image_path));
+}
+
+TEST(CliRunnerMatlabTest, RejectsNonTransientAnalysisBeforeWriting) {
+    TempWorkspace files;
+    const auto input = files.write("divider.cir", kDividerNetlist);
+    const auto output_path = files.path("result.txt");
+    const auto image_path = files.path("result.png");
+    std::ostringstream output;
+    std::ostringstream error;
+    bool invoked = false;
+
+    const int code = run_cli(
+        {
+            input.string(),
+            "-o",
+            output_path.string(),
+            "--matlab-plot",
+            image_path.string(),
+        },
+        output,
+        error,
+        [&](const auto&, const auto&) { invoked = true; });
+
+    EXPECT_EQ(code, 1);
+    EXPECT_FALSE(invoked);
+    EXPECT_TRUE(output.str().empty());
+    EXPECT_NE(
+        error.str().find("--matlab-plot requires a .tran analysis"),
+        std::string::npos);
+    EXPECT_FALSE(std::filesystem::exists(output_path));
+    EXPECT_FALSE(std::filesystem::exists(image_path));
+}
+
 TEST(CliRunnerUsageTest, RejectsInvalidArgumentShapesWithExitTwo) {
     const std::vector<std::vector<std::string>> cases{
         {},
         {"input.cir", "-o"},
+        {"input.cir", "--matlab-plot", "plot.png"},
+        {"input.cir", "-o", "out.csv", "--matlab-plot"},
+        {"input.cir", "-o", "out.csv", "--matlab-plot", ""},
+        {"input.cir", "-o", "one.csv", "-o", "two.csv"},
+        {"input.cir", "-o", "out.csv", "--matlab-plot", "one.png",
+            "--matlab-plot", "two.png"},
         {"input.cir", "--output", "out.txt"},
         {"input.cir", "-o", "out.txt", "extra"},
         {""},
@@ -194,9 +329,61 @@ TEST(CliRunnerUsageTest, RejectsInvalidArgumentShapesWithExitTwo) {
         EXPECT_NE(error.str().find("error: invalid arguments\n"), std::string::npos);
         EXPECT_NE(
             error.str().find(
-                "usage: TinySpice <netlist-file> [-o <output-file>]\n"),
+                "usage: TinySpice <netlist-file> [-o <output-file> "
+                "--matlab-plot <image-file>]\n"),
             std::string::npos);
     }
+}
+
+TEST(CliRunnerMatlabTest, RejectsPlotPathAliasesWithoutTouchingInputOrCsv) {
+    TempWorkspace files;
+    const auto input = files.write("rc.cir", kRcNetlist);
+    const auto csv_path = files.path("result.csv");
+    std::ostringstream output;
+    std::ostringstream error;
+
+    EXPECT_EQ(
+        run_cli(
+            {
+                input.string(),
+                "-o",
+                csv_path.string(),
+                "--matlab-plot",
+                csv_path.string(),
+            },
+            output,
+            error,
+            [](const auto&, const auto&) {}),
+        1);
+    EXPECT_NE(
+        error.str().find(
+            "MATLAB plot file must differ from simulation output file"),
+        std::string::npos);
+    EXPECT_EQ(read_text(input), kRcNetlist);
+    EXPECT_FALSE(std::filesystem::exists(csv_path));
+
+    output.str("");
+    output.clear();
+    error.str("");
+    error.clear();
+    EXPECT_EQ(
+        run_cli(
+            {
+                input.string(),
+                "-o",
+                csv_path.string(),
+                "--matlab-plot",
+                input.string(),
+            },
+            output,
+            error,
+            [](const auto&, const auto&) {}),
+        1);
+    EXPECT_NE(
+        error.str().find("MATLAB plot file must differ from input file"),
+        std::string::npos);
+    EXPECT_EQ(read_text(input), kRcNetlist);
+    EXPECT_FALSE(std::filesystem::exists(csv_path));
 }
 
 TEST(CliRunnerFailureTest, ReportsMissingInputPathWithExitOne) {

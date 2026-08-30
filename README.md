@@ -19,6 +19,7 @@ ctest --test-dir build --output-on-failure
 ```text
 TinySpice <netlist-file>
 TinySpice <netlist-file> -o <output-file>
+TinySpice <netlist-file> -o <csv-file> --matlab-plot <image-file>
 ```
 
 不带 `-o` 时写 stdout；带 `-o` 时只写指定文件。成功退出码为 0，文件、解析、求解或输出失败为 1，命令行参数错误为 2。
@@ -124,6 +125,24 @@ plot_transient("build/rc.csv", ["V(out)", "I(v1)"], ...
 
 若要保存全部波形，可把第二个参数写成 `[]`。MATLAB 工具同样会检查文件、`time` 列、波形列、空数据以及非数值或非有限值。上述全部列、指定列、多列图片导出和缺失列错误路径已在 MATLAB R2026a Update 5 实机验证。
 
+也可以让 TinySpice 在瞬态仿真成功后自动启动 MATLAB 批处理并导出图片，无需手动进入 MATLAB：
+
+```bash
+./build/sandbox/TinySpice examples/rc_transient.cir \
+    -o build/rc.csv \
+    --matlab-plot build/rc.png
+```
+
+该选项必须和 `-o` 一起使用，并且目前只接受 `.tran` 分析。TinySpice 先完整写出 CSV，再通过 `matlab -batch` 调用 `plot_transient.m`；MATLAB 启动或绘图失败时 CLI 返回 1，但保留已经成功生成的 CSV。`SpiceLib` 不依赖 MATLAB，自动绘图只存在于可选 CLI 后处理层。
+
+MATLAB 可执行文件按以下顺序查找：
+
+1. 环境变量 `TINYSPICE_MATLAB_EXECUTABLE` 指定的路径；
+2. macOS 的 `/Applications` 和 `~/Applications` 下最新的 `MATLAB_*.app`；
+3. 当前 `PATH` 中的 `matlab`。
+
+源码树之外运行 CLI 时，还可用 `TINYSPICE_MATLAB_SCRIPT_DIR` 指向包含 `plot_transient.m` 的目录。当前自动调用链已在 MATLAB R2026a Update 5 实机验证，生成 1274×820 PNG。
+
 ## 当前网表语法
 
 - 元件：`R`、独立 DC `V`、独立 DC `I`、`D`、`C`、`L`。
@@ -144,4 +163,5 @@ plot_transient("build/rc.csv", ["V(out)", "I(v1)"], ...
 - 独立源只有常量 DC 值；尚无 PULSE、SIN、PWL。
 - 二极管模型参数固定；尚无模型卡、MOSFET、受控源。
 - 当前为稠密矩阵求解器；尚无稀疏矩阵、大轨迹流式输出或 ngspice 自动对拍。
+- MATLAB 自动绘图是本地可选后处理，仅支持 `.tran`，运行机器必须安装 MATLAB；分布式 Worker 不需要启用该选项。
 - CSV 标签不支持逗号、双引号或换行；输出不携带单位列。

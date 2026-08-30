@@ -1,5 +1,7 @@
 #include "run_cli.h"
 
+#include "matlab_plot.h"
+
 #include "output/result_writer.h"
 #include "parser/Circuit.h"
 #include "sim/simulate.h"
@@ -7,6 +9,7 @@
 #include <exception>
 #include <filesystem>
 #include <fstream>
+#include <optional>
 #include <ostream>
 #include <stdexcept>
 #include <string>
@@ -17,16 +20,39 @@ constexpr int kSuccess = 0;
 constexpr int kRuntimeFailure = 1;
 constexpr int kUsageFailure = 2;
 constexpr const char* kUsage =
-    "usage: TinySpice <netlist-file> [-o <output-file>]\n";
+    "usage: TinySpice <netlist-file> [-o <output-file> "
+    "--matlab-plot <image-file>]\n";
 
-bool has_valid_syntax(const std::vector<std::string>& args) {
-    if (args.size() == 1) {
-        return !args[0].empty();
+struct CliOptions {
+    std::string input_path;
+    std::optional<std::string> output_path;
+    std::optional<std::string> matlab_plot_path;
+};
+
+std::optional<CliOptions> parse_options(
+    const std::vector<std::string>& args) {
+    if (args.empty() || args[0].empty()) {
+        return std::nullopt;
     }
-    return args.size() == 3
-        && !args[0].empty()
-        && args[1] == "-o"
-        && !args[2].empty();
+
+    CliOptions options{args[0], std::nullopt, std::nullopt};
+    for (std::size_t index = 1; index < args.size(); index += 2) {
+        if (index + 1 >= args.size() || args[index + 1].empty()) {
+            return std::nullopt;
+        }
+        if (args[index] == "-o" && !options.output_path) {
+            options.output_path = args[index + 1];
+        } else if (args[index] == "--matlab-plot"
+                   && !options.matlab_plot_path) {
+            options.matlab_plot_path = args[index + 1];
+        } else {
+            return std::nullopt;
+        }
+    }
+    if (options.matlab_plot_path && !options.output_path) {
+        return std::nullopt;
+    }
+    return options;
 }
 
 int report_usage_error(std::ostream& error) {
@@ -76,16 +102,47 @@ int run_cli(
     const std::vector<std::string>& args,
     std::ostream& standard_out,
     std::ostream& standard_err) {
-    if (!has_valid_syntax(args)) {
+    return run_cli(
+        args,
+        standard_out,
+        standard_err,
+        run_matlab_plot);
+}
+
+int run_cli(
+    const std::vector<std::string>& args,
+    std::ostream& standard_out,
+    std::ostream& standard_err,
+    const MatlabPlotRunner& matlab_plot_runner) {
+    const std::optional<CliOptions> options = parse_options(args);
+    if (!options) {
         return report_usage_error(standard_err);
     }
 
-    const std::string& input_path = args[0];
-    const bool writes_file = args.size() == 3;
-    if (writes_file && paths_refer_to_same_file(input_path, args[2])) {
+    const std::string& input_path = options->input_path;
+    if (options->output_path
+        && paths_refer_to_same_file(input_path, *options->output_path)) {
         return report_runtime_error(
             standard_err,
             "output file must differ from input file '" + input_path + "'");
+    }
+    if (options->matlab_plot_path
+        && paths_refer_to_same_file(
+            input_path,
+            *options->matlab_plot_path)) {
+        return report_runtime_error(
+            standard_err,
+            "MATLAB plot file must differ from input file '"
+            + input_path + "'");
+    }
+    if (options->matlab_plot_path
+        && paths_refer_to_same_file(
+            *options->output_path,
+            *options->matlab_plot_path)) {
+        return report_runtime_error(
+            standard_err,
+            "MATLAB plot file must differ from simulation output file '"
+            + *options->output_path + "'");
     }
 
     try {
@@ -99,10 +156,21 @@ int run_cli(
         Circuit circuit = parse_circuit(input);
         SimulationResult result = simulate(circuit);
 
-        if (writes_file) {
-            write_output_file(args[2], circuit, result);
+        if (options->matlab_plot_path
+            && !std::holds_alternative<TransientAnalysisResult>(result)) {
+            throw std::invalid_argument(
+                "--matlab-plot requires a .tran analysis");
+        }
+
+        if (options->output_path) {
+            write_output_file(*options->output_path, circuit, result);
         } else {
             write_simulation_result(standard_out, circuit, result);
+        }
+        if (options->matlab_plot_path) {
+            matlab_plot_runner(
+                *options->output_path,
+                *options->matlab_plot_path);
         }
         return kSuccess;
     } catch (const std::exception& error) {
