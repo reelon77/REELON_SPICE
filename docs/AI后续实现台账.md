@@ -141,7 +141,7 @@ AI 设计/实现范围：
 
 > 日期：2026-08-30
 > Task ID：`TS-M09-DC`
-> 状态：第 0～4 档已完成；待 Git 最终收口与主会话验收
+> 状态：第 0～4 档已完成；任务会话 Git 已收口，待主会话验收
 
 - 目标与范围：在不修改 `const Circuit` 内器件的前提下，完成类型化 `.op/.tran/.dc` 请求、全局唯一器件身份、独立 V/I 源局部克隆覆盖、单/双源扫描、结构化结果及 CSV/CLI。
 - 第 0 档 AI 设计：选择具名 struct + `std::variant` 作为唯一分析 IR；`device_names` 与 `devices` 一一对应；`.dc` 前向引用在解析结束后绑定到 `IndependentSource`；每点仅克隆被扫源并替换非拥有视图；整数步号生成扫描序列；双源为 source2 外层。
@@ -168,7 +168,7 @@ AI 设计/实现范围：
 - 第 4 档独立只读复核与修正：复核发现第 2 档扫描容差以 `1.0` 为尺度下限，会破坏极小区间和大偏置小步长。AI 修改 `src/parser/Circuit.cpp::generate_dc_sweep_values`，改用 stop ULP/机器 epsilon 量级且由 `|step|/4` 封顶的边界容差，命中 stop 后结束并保证严格单调无重复；修改 `src/sim/simulate.cpp::validate_device_identity/simulate_dc_sweep`，拒绝手工 Circuit 的 null、空名、大写、重名及双轴同源。
 - 第 4 档复核测试：修改 `tests/test_parser.cpp`，加入显式 `.dc v1 0 1p 0.1p` 和 `1e12` 大偏置小区间的 11 点严格递增回归；修改 `tests/test_simulate.cpp`，加入 null/重名/未规范化身份及手工双轴同名拒绝。该问题在第 4 档提交前被捕获和修复，未进入已推送的最终实现提交。
 - 第 4 档验证：parser 45/45，controller 17/17，writer 11/11，CLI 函数级 11/11，DC 真实进程/examples 4/4，先构建再全仓 182/182；三份 DC examples 手工实跑；单源 CSV 通过 Python 标准库和 MATLAB R2026a `readtable` 实机回读断言。
-- 第 4 档提交：待本档提交后由 M09 纯文档收口回填精确 hash。
+- 第 4 档提交：`ae05de8 feat: add dc sweep output and examples`；本行由随后纯文档提交回填。
 
 ## 六、已确认的后续工具路线
 
