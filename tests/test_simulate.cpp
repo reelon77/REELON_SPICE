@@ -125,7 +125,7 @@ TEST(SimulationControllerErrorTest, RejectsCircuitWithoutAnalysisDirective) {
         ".end\n");
 
     Circuit circuit = parse_circuit(input);
-    ASSERT_EQ(circuit.analysis_type, AnalysisType::None);
+    ASSERT_TRUE(std::holds_alternative<std::monostate>(circuit.analysis));
 
     EXPECT_THROW(simulate(circuit), std::invalid_argument);
 }
@@ -150,7 +150,19 @@ TEST(SimulationControllerErrorTest, PropagatesInvalidTransientParameters) {
         ".end\n");
 
     Circuit circuit = parse_circuit(input);
-    circuit.t_step = 0.0;
+    circuit.analysis = TransientAnalysis{0.0, 0.2};
+
+    EXPECT_THROW(simulate(circuit), std::invalid_argument);
+}
+
+TEST(SimulationControllerValidationTest, RejectsDeviceIdentityMismatch) {
+    std::istringstream input(
+        "V1 1 0 1\n"
+        ".op\n"
+        ".end\n");
+
+    Circuit circuit = parse_circuit(input);
+    circuit.device_names.clear();
 
     EXPECT_THROW(simulate(circuit), std::invalid_argument);
 }

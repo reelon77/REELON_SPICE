@@ -18,3 +18,16 @@ void VoltageSource::stamp(MnaSystem& mna) const {
     mna.add_to_b_raw(k, voltage_);
 
 }
+
+double VoltageSource::dc_value() const noexcept {
+    return voltage_;
+}
+
+std::unique_ptr<IndependentSource> VoltageSource::clone_with_dc_value(
+    double value) const {
+    return std::make_unique<VoltageSource>(
+        value,
+        node_pos_,
+        node_neg_,
+        sourceIndex_);
+}

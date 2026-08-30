@@ -12,6 +12,7 @@
 #include "solver/transient.h"
 #include <gtest/gtest.h>
 #include <sstream>
+#include <variant>
 #include <vector>
 
 namespace {
@@ -77,7 +78,7 @@ TEST(ParserEndToEndTest, VoltageDividerNetlistSolvesTo8V) {
         ".end\n");
 
     Circuit circuit = parse_circuit(input);
-    ASSERT_EQ(circuit.analysis_type, AnalysisType::Op);
+    ASSERT_TRUE(std::holds_alternative<OperatingPointAnalysis>(circuit.analysis));
     ASSERT_EQ(circuit.nodes, 3);
     ASSERT_EQ(circuit.num_branch_unknowns, 1);
 
@@ -103,7 +104,7 @@ TEST(ParserEndToEndTest, DiodeNetlistConvergesToExpectedOperatingPoint) {
         ".end\n");
 
     Circuit circuit = parse_circuit(input);
-    ASSERT_EQ(circuit.analysis_type, AnalysisType::Op);
+    ASSERT_TRUE(std::holds_alternative<OperatingPointAnalysis>(circuit.analysis));
     ASSERT_EQ(circuit.nodes, 3);
     ASSERT_EQ(circuit.num_branch_unknowns, 1);
 
@@ -128,7 +129,8 @@ TEST(ParserTransientEndToEndTest, RcNetlistMatchesManualConstructionAndHandOracl
         ".end\n");
 
     Circuit circuit = parse_circuit(input);
-    ASSERT_EQ(circuit.analysis_type, AnalysisType::Tran);
+    ASSERT_TRUE(std::holds_alternative<TransientAnalysis>(circuit.analysis));
+    const auto& transient = std::get<TransientAnalysis>(circuit.analysis);
     ASSERT_EQ(circuit.nodes, 3);
     ASSERT_EQ(circuit.num_branch_unknowns, 1);
 
@@ -138,8 +140,8 @@ TEST(ParserTransientEndToEndTest, RcNetlistMatchesManualConstructionAndHandOracl
     const std::vector<TransientPoint> parsed = transient_solve(
         borrow_devices(circuit),
         parsed_sys,
-        circuit.t_step,
-        circuit.t_stop,
+        transient.t_step,
+        transient.t_stop,
         parsed_initial_x);
 
     VoltageSource manual_source(2.0, 1, 0, 0);
@@ -180,7 +182,8 @@ TEST(ParserTransientEndToEndTest, RlNetlistSharesBranchPoolAndMatchesHandOracle)
         ".end\n");
 
     Circuit circuit = parse_circuit(input);
-    ASSERT_EQ(circuit.analysis_type, AnalysisType::Tran);
+    ASSERT_TRUE(std::holds_alternative<TransientAnalysis>(circuit.analysis));
+    const auto& transient = std::get<TransientAnalysis>(circuit.analysis);
     ASSERT_EQ(circuit.nodes, 3);
     ASSERT_EQ(circuit.num_branch_unknowns, 2);
 
@@ -190,8 +193,8 @@ TEST(ParserTransientEndToEndTest, RlNetlistSharesBranchPoolAndMatchesHandOracle)
     const std::vector<TransientPoint> parsed = transient_solve(
         borrow_devices(circuit),
         parsed_sys,
-        circuit.t_step,
-        circuit.t_stop,
+        transient.t_step,
+        transient.t_stop,
         parsed_initial_x);
 
     Inductor manual_inductor(0.5, 1, 0, 0);

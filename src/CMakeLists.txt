@@ -9,6 +9,7 @@ add_library(SpiceLib STATIC
     mna/MnaSystem.cpp
     devices/Device.h
     devices/Device.cpp
+    devices/IndependentSource.h
     devices/Resistor.h
     devices/Resistor.cpp
     devices/CurrentSource.h

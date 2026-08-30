@@ -2,6 +2,7 @@
 // 覆盖：CurrentSource 的落点/符号、接地端跳过、与电阻共存互不污染；
 //       VoltageSource 的维度扩展、混合坐标 5 个落点与符号配对、接地端只剩 3 次写入。
 #include "devices/CurrentSource.h"
+#include "devices/IndependentSource.h"
 #include "devices/Resistor.h"
 #include "devices/VoltageSource.h"
 #include "mna/MnaSystem.h"
@@ -103,4 +104,58 @@ TEST(VoltageSourceTest, GroundedNegativeTerminalLeavesThreeEntries) {
     EXPECT_DOUBLE_EQ(A(0, 0), 0.0);
     EXPECT_DOUBLE_EQ(A(k, k), 0.0);
     EXPECT_DOUBLE_EQ(sys.get_b()[0], 0.0);
+}
+
+TEST(IndependentSourceTest, VoltageCloneChangesOnlyDcValueAndPreservesOriginal) {
+    VoltageSource original(5.0, 1, 0, 0);
+    IndependentSource& source = original;
+    std::unique_ptr<IndependentSource> clone =
+        source.clone_with_dc_value(9.0);
+
+    EXPECT_DOUBLE_EQ(source.dc_value(), 5.0);
+    EXPECT_DOUBLE_EQ(clone->dc_value(), 9.0);
+    EXPECT_NE(dynamic_cast<VoltageSource*>(clone.get()), nullptr);
+
+    MnaSystem original_before(2, 1);
+    MnaSystem overridden(2, 1);
+    MnaSystem original_after(2, 1);
+    source.stamp(original_before);
+    clone->stamp(overridden);
+    source.stamp(original_after);
+
+    for (int row = 0; row < original_before.dim(); ++row) {
+        for (int column = 0; column < original_before.dim(); ++column) {
+            EXPECT_DOUBLE_EQ(
+                original_before.get_A()(row, column),
+                overridden.get_A()(row, column));
+            EXPECT_DOUBLE_EQ(
+                original_before.get_A()(row, column),
+                original_after.get_A()(row, column));
+        }
+    }
+    EXPECT_DOUBLE_EQ(original_before.get_b()[1], 5.0);
+    EXPECT_DOUBLE_EQ(overridden.get_b()[1], 9.0);
+    EXPECT_DOUBLE_EQ(original_after.get_b()[1], 5.0);
+}
+
+TEST(IndependentSourceTest, CurrentCloneChangesOnlyDcValueAndPreservesOriginal) {
+    CurrentSource original(2e-3, 1, 0);
+    IndependentSource& source = original;
+    std::unique_ptr<IndependentSource> clone =
+        source.clone_with_dc_value(-3e-3);
+
+    EXPECT_DOUBLE_EQ(source.dc_value(), 2e-3);
+    EXPECT_DOUBLE_EQ(clone->dc_value(), -3e-3);
+    EXPECT_NE(dynamic_cast<CurrentSource*>(clone.get()), nullptr);
+
+    MnaSystem original_before(2, 0);
+    MnaSystem overridden(2, 0);
+    MnaSystem original_after(2, 0);
+    source.stamp(original_before);
+    clone->stamp(overridden);
+    source.stamp(original_after);
+
+    EXPECT_DOUBLE_EQ(original_before.get_b()[0], -2e-3);
+    EXPECT_DOUBLE_EQ(overridden.get_b()[0], 3e-3);
+    EXPECT_DOUBLE_EQ(original_after.get_b()[0], -2e-3);
 }

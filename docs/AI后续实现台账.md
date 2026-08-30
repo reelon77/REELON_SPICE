@@ -141,14 +141,18 @@ AI 设计/实现范围：
 
 > 日期：2026-08-30
 > Task ID：`TS-M09-DC`
-> 状态：第 0 档设计闸门已锁定；第 1～4 档待执行
+> 状态：第 0～1 档已完成；第 2～4 档待执行
 
 - 目标与范围：在不修改 `const Circuit` 内器件的前提下，完成类型化 `.op/.tran/.dc` 请求、全局唯一器件身份、独立 V/I 源局部克隆覆盖、单/双源扫描、结构化结果及 CSV/CLI。
 - 第 0 档 AI 设计：选择具名 struct + `std::variant` 作为唯一分析 IR；`device_names` 与 `devices` 一一对应；`.dc` 前向引用在解析结束后绑定到 `IndependentSource`；每点仅克隆被扫源并替换非拥有视图；整数步号生成扫描序列；双源为 source2 外层。
 - 第 0 档 AI 文档：新建 `会话交接/回执_M09_直流扫描与源抽象.md`，记录接口草图、被拒方案、不变量、错误和结果契约；本档不修改生产代码、测试或 CMake。
 - 明确保留的用户历史归属：现有 parser、V/I 源 stamp、Newton、transient、MNA/LU 与 M07 controller 原始实现归属不变；M09 后续对其修改将精确登记函数/区域。
 - 第 0 档验证：`main == origin/main == fb6bba8`，工作区干净；先构建再测试，全仓 152/152。
-- 提交：第 0 档提交将在 M09 最终收口时回填精确 hash。
+- 第 0 档提交：`731f607 docs: lock M09 dc sweep design`。
+- 第 1 档 AI 生产代码：新建 `src/devices/IndependentSource.h`；修改 `src/parser/Circuit.h` 的分析 IR/`device_names`，`src/parser/Circuit.cpp::parse_circuit` 的单一分析赋值和同步器件登记，`VoltageSource`/`CurrentSource` 的 `dc_value/clone_with_dc_value`，以及 `src/sim/simulate.cpp::simulate` 的 variant 分派和身份防御检查。未修改 V/I stamp 公式、Newton、transient、MNA 或 LU。
+- 第 1 档 AI 测试/工程：修改 `tests/test_parser.cpp`、`tests/test_end_to_end.cpp`、`tests/test_simulate.cpp`、`tests/test_sources.cpp`；修改 `src/CMakeLists.txt` 挂载新头文件。覆盖分析冲突、名称映射/重名、V/I 克隆不污染原对象、旧 `.op/.tran` 结果。
+- 第 1 档验证：parser 38/38、source 8/8、controller 9/9、end-to-end 5/5；先构建再全仓测试 158/158。
+- 第 1 档提交：待本档提交后在 M09 最终收口回填精确 hash。
 
 ## 六、已确认的后续工具路线
 

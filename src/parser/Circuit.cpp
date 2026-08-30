@@ -15,6 +15,8 @@
 #include <string>
 #include <stdexcept>
 #include <unordered_map>
+#include <utility>
+#include <variant>
 
 Circuit parse_circuit(std::istream& input) {
     Circuit circuit;
@@ -25,6 +27,9 @@ Circuit parse_circuit(std::istream& input) {
     nodes_map["0"] = 0;
     nodes_map["gnd"] = 0;
     int next_node = 1;
+    std::unordered_map<std::string, int> device_name_lines;
+    int analysis_line = 0;
+    std::string analysis_directive;
 
     auto get_or_create_node = [&nodes_map, &next_node, &circuit](const std::string& node_name) -> int {
         auto res = nodes_map.find(node_name);
@@ -50,6 +55,43 @@ Circuit parse_circuit(std::istream& input) {
         }
     };
 
+    auto add_device = [
+        &circuit,
+        &device_name_lines,
+        &line_number](
+            const std::string& name,
+            std::unique_ptr<Device> device) {
+        const auto [existing, inserted] =
+            device_name_lines.emplace(name, line_number);
+        if (!inserted) {
+            std::stringstream error;
+            error << line_number << ": duplicate device name " << name
+                  << " (first declared at line " << existing->second << ')';
+            throw std::runtime_error(error.str());
+        }
+        circuit.device_names.push_back(name);
+        circuit.devices.push_back(std::move(device));
+    };
+
+    auto set_analysis = [
+        &circuit,
+        &analysis_line,
+        &analysis_directive,
+        &line_number](
+            const std::string& directive,
+            AnalysisRequest request) {
+        if (!std::holds_alternative<std::monostate>(circuit.analysis)) {
+            std::stringstream error;
+            error << line_number << ": analysis directive " << directive
+                  << " conflicts with " << analysis_directive
+                  << " at line " << analysis_line;
+            throw std::runtime_error(error.str());
+        }
+        circuit.analysis = std::move(request);
+        analysis_line = line_number;
+        analysis_directive = directive;
+    };
+
     while (std::getline(input, line)) {
         ++line_number;
         auto tokens = tokenize(line);
@@ -64,7 +106,7 @@ Circuit parse_circuit(std::istream& input) {
                 e << line_number << ": .op line's more than 1 token!";
                 throw std::runtime_error(e.str());
             }
-            circuit.analysis_type = AnalysisType::Op;
+            set_analysis(tokens[0], OperatingPointAnalysis{});
             continue;
         }
 
@@ -82,7 +124,9 @@ Circuit parse_circuit(std::istream& input) {
                 double resistance = parse_value(tokens[3]);
                 int node1 = get_or_create_node(tokens[1]);
                 int node2 = get_or_create_node(tokens[2]);
-                circuit.devices.push_back(std::make_unique<Resistor>(resistance, node1, node2));
+                add_device(
+                    tokens[0],
+                    std::make_unique<Resistor>(resistance, node1, node2));
                 continue;
             } else {
                 std::stringstream e;
@@ -96,7 +140,13 @@ Circuit parse_circuit(std::istream& input) {
                 int node_pos = get_or_create_node(tokens[1]);
                 int node_neg = get_or_create_node(tokens[2]);
                 int sourceIndex = circuit.num_branch_unknowns;
-                circuit.devices.push_back(std::make_unique<VoltageSource>(voltage, node_pos, node_neg, sourceIndex));
+                add_device(
+                    tokens[0],
+                    std::make_unique<VoltageSource>(
+                        voltage,
+                        node_pos,
+                        node_neg,
+                        sourceIndex));
                 circuit.branch_names.push_back(tokens[0]);
                 circuit.num_branch_unknowns++;
                 continue;
@@ -111,7 +161,12 @@ Circuit parse_circuit(std::istream& input) {
                 double current = parse_value(tokens[3]);
                 int node_from = get_or_create_node(tokens[1]);
                 int node_to = get_or_create_node(tokens[2]);
-                circuit.devices.push_back(std::make_unique<CurrentSource>(current, node_from, node_to));
+                add_device(
+                    tokens[0],
+                    std::make_unique<CurrentSource>(
+                        current,
+                        node_from,
+                        node_to));
                 continue;
             } else {
                 std::stringstream e;
@@ -125,7 +180,9 @@ Circuit parse_circuit(std::istream& input) {
                 double Vt = 0.025852;
                 int node_pos = get_or_create_node(tokens[1]);
                 int node_neg = get_or_create_node(tokens[2]);
-                circuit.devices.push_back(std::make_unique<Diode>(Is, Vt, node_pos, node_neg));
+                add_device(
+                    tokens[0],
+                    std::make_unique<Diode>(Is, Vt, node_pos, node_neg));
                 continue;
             } else {
                 std::stringstream e;
@@ -147,7 +204,9 @@ Circuit parse_circuit(std::istream& input) {
             }
             int node_pos = get_or_create_node(tokens[1]);
             int node_neg = get_or_create_node(tokens[2]);
-            circuit.devices.push_back(std::make_unique<Capacitor>(capacity, node_pos, node_neg));
+            add_device(
+                tokens[0],
+                std::make_unique<Capacitor>(capacity, node_pos, node_neg));
             continue;
         }
         if (tokens[0][0] == 'l') {
@@ -164,7 +223,13 @@ Circuit parse_circuit(std::istream& input) {
             }
             int node_pos = get_or_create_node(tokens[1]);
             int node_neg = get_or_create_node(tokens[2]);
-            circuit.devices.push_back(std::make_unique<Inductor>(L, node_pos, node_neg, circuit.num_branch_unknowns));
+            add_device(
+                tokens[0],
+                std::make_unique<Inductor>(
+                    L,
+                    node_pos,
+                    node_neg,
+                    circuit.num_branch_unknowns));
             circuit.branch_names.push_back(tokens[0]);
             circuit.num_branch_unknowns++;
             continue;
@@ -182,9 +247,7 @@ Circuit parse_circuit(std::istream& input) {
                 e << line_number << ": The t_step and t_stop value must be positive!";
                 throw std::runtime_error(e.str());
             }
-            circuit.t_step = t_step;
-            circuit.t_stop = t_stop;
-            circuit.analysis_type = AnalysisType::Tran;
+            set_analysis(tokens[0], TransientAnalysis{t_step, t_stop});
             continue;
         }
 

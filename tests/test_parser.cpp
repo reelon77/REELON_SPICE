@@ -20,6 +20,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <variant>
 #include <vector>
 
 namespace {
@@ -30,6 +31,11 @@ void expect_parses(const std::string& in, double expected) {
     EXPECT_NEAR(got, expected, std::abs(expected) * 1e-12)
         << "输入 \"" << in << "\"";
 }
+
+void expect_parse_error_contains(
+    const std::string& netlist,
+    const std::vector<std::string>& expected_fragments,
+    const std::vector<std::string>& forbidden_fragments = {});
 
 } // namespace
 
@@ -136,7 +142,7 @@ TEST(CircuitParserTest, ParsesOpWhileSkippingBlankAndCommentLines) {
 
     Circuit circuit = parse_circuit(input);
 
-    EXPECT_EQ(circuit.analysis_type, AnalysisType::Op);
+    EXPECT_TRUE(std::holds_alternative<OperatingPointAnalysis>(circuit.analysis));
     EXPECT_TRUE(circuit.devices.empty());
     EXPECT_EQ(circuit.nodes, 1);
     EXPECT_EQ(circuit.num_branch_unknowns, 0);
@@ -149,7 +155,7 @@ TEST(CircuitParserTest, EndStopsBeforeInvalidFollowingContent) {
 
     Circuit circuit = parse_circuit(input);
 
-    EXPECT_EQ(circuit.analysis_type, AnalysisType::None);
+    EXPECT_TRUE(std::holds_alternative<std::monostate>(circuit.analysis));
 }
 
 TEST(CircuitParserTest, RejectsOpArgumentsAndReportsLineNumber) {
@@ -182,6 +188,20 @@ TEST(CircuitParserTest, RejectsEndArgumentsAndReportsLineNumber) {
         const std::string message = e.what();
         EXPECT_NE(message.find("3:"), std::string::npos);
         EXPECT_NE(message.find(".end"), std::string::npos);
+    }
+}
+
+TEST(CircuitParserTest, RejectsRepeatedOrConflictingAnalysisDirectives) {
+    const std::vector<std::string> netlists{
+        ".op\n.op\n",
+        ".tran 1m 2m\n.tran 1m 2m\n",
+        ".op\n.tran 1m 2m\n",
+        ".tran 1m 2m\n.op\n",
+    };
+
+    for (const std::string& netlist : netlists) {
+        SCOPED_TRACE(netlist);
+        expect_parse_error_contains(netlist, {"2:", "line 1", "analysis"});
     }
 }
 
@@ -233,7 +253,7 @@ namespace {
 void expect_parse_error_contains(
     const std::string& netlist,
     const std::vector<std::string>& expected_fragments,
-    const std::vector<std::string>& forbidden_fragments = {}) {
+    const std::vector<std::string>& forbidden_fragments) {
     std::istringstream input(netlist);
     try {
         (void)parse_circuit(input);
@@ -275,7 +295,7 @@ TEST(CircuitDeviceParsingTest, CreatesEverySupportedDeviceInNetlistOrder) {
     EXPECT_NE(dynamic_cast<Inductor*>(circuit.devices[5].get()), nullptr);
     EXPECT_EQ(circuit.nodes, 7);
     EXPECT_EQ(circuit.num_branch_unknowns, 2);
-    EXPECT_EQ(circuit.analysis_type, AnalysisType::Op);
+    EXPECT_TRUE(std::holds_alternative<OperatingPointAnalysis>(circuit.analysis));
 }
 
 TEST(CircuitDeviceParsingTest, RejectsUnknownDeviceAndReportsLineAndToken) {
@@ -344,9 +364,10 @@ TEST(CircuitTransientParsingTest, ParsesCapacitorInductorAndTranCaseInsensitivel
     EXPECT_EQ(circuit.nodes, 4);
     EXPECT_EQ(circuit.num_branch_unknowns, 2)
         << "C 不扩维，L/V 按出现顺序共享同一个支路编号池";
-    EXPECT_EQ(circuit.analysis_type, AnalysisType::Tran);
-    EXPECT_DOUBLE_EQ(circuit.t_step, 0.25);
-    EXPECT_DOUBLE_EQ(circuit.t_stop, 0.5);
+    ASSERT_TRUE(std::holds_alternative<TransientAnalysis>(circuit.analysis));
+    const auto& transient = std::get<TransientAnalysis>(circuit.analysis);
+    EXPECT_DOUBLE_EQ(transient.t_step, 0.25);
+    EXPECT_DOUBLE_EQ(transient.t_stop, 0.5);
 }
 
 TEST(CircuitTransientParsingTest, RejectsWrongTranTokenCountWithLineNumber) {
@@ -420,10 +441,37 @@ TEST(CircuitMetadataTest, DefaultCircuitUsesCanonicalGroundAndNoBranches) {
 
     EXPECT_EQ(circuit.node_names, std::vector<std::string>{"0"});
     EXPECT_TRUE(circuit.branch_names.empty());
+    EXPECT_TRUE(circuit.device_names.empty());
     EXPECT_EQ(circuit.node_names.size(), static_cast<std::size_t>(circuit.nodes));
     EXPECT_EQ(
         circuit.branch_names.size(),
         static_cast<std::size_t>(circuit.num_branch_unknowns));
+}
+
+TEST(CircuitMetadataTest, DeviceNamesMatchDevicesInNetlistOrder) {
+    std::istringstream input(
+        "RLoad in out 1k\n"
+        "VDrive in 0 2\n"
+        "ISink out 0 1m\n"
+        "DClamp out 0\n"
+        "CStore out 0 1u\n"
+        "LFeed in out 1m\n"
+        ".end\n");
+
+    Circuit circuit = parse_circuit(input);
+
+    EXPECT_EQ(
+        circuit.device_names,
+        (std::vector<std::string>{
+            "rload", "vdrive", "isink", "dclamp", "cstore", "lfeed"}));
+    EXPECT_EQ(circuit.device_names.size(), circuit.devices.size());
+}
+
+TEST(CircuitMetadataTest, RejectsCaseInsensitiveDuplicateDeviceName) {
+    expect_parse_error_contains(
+        "R1 in out 1k\n"
+        "r1 out 0 2k\n",
+        {"2:", "duplicate device name", "r1", "line 1"});
 }
 
 TEST(CircuitMetadataTest, NodeNamesFollowFirstOccurrenceWithoutDuplicates) {
