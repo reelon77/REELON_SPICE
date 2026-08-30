@@ -201,7 +201,8 @@ AI 设计/实现范围：
 - AI 更新本台账和 `项目梳理与开发计划.md`，将项目标为暂停、当前活动任务保持为空；未创建或启动 M10。
 - 本地环境登记：MATLAB R2026a `bin` 已加入 `~/.zprofile` 与 `~/.zshrc`；登录和非登录交互 zsh 均能直接解析 `matlab`，batch 版本调用返回 R2026a Update 5。用户目录 shell 配置不属于 Git 仓库提交。
 - 明确未修改：全部生产代码、测试、CMake、README、MATLAB/Python 脚本和 187 项既有测试。
-- 验证：重新构建成功，全仓 187/187，`git diff --check` 通过；暂停交接提交待本档提交后回填。
+- 验证：重新构建成功，全仓 187/187，`git diff --check` 通过。
+- 暂停交接提交：`6d1553c docs: pause TinySpice and add project handoff`；本行由随后纯文档提交回填。
 
 ## 六、已确认的后续工具路线
 
