@@ -2,7 +2,7 @@
 
 > 建立日期：2026-08-30
 > 起算基线：`4d11881 docs: add M08 implementation handoff inventory`
-> 状态：启用；TinySpice 1.0 AI 实现阶段启动，当前任务 `TS-M09-DC`
+> 状态：启用；`TS-M09-DC` 已正式验收销项，当前无活动任务，M10 尚未下发
 
 ## 一、用途
 
@@ -141,7 +141,7 @@ AI 设计/实现范围：
 
 > 日期：2026-08-30
 > Task ID：`TS-M09-DC`
-> 状态：第 0～4 档已完成；任务会话 Git 已收口，待主会话验收
+> 状态：第 0～4 档已完成；主会话已正式验收销项
 
 - 目标与范围：在不修改 `const Circuit` 内器件的前提下，完成类型化 `.op/.tran/.dc` 请求、全局唯一器件身份、独立 V/I 源局部克隆覆盖、单/双源扫描、结构化结果及 CSV/CLI。
 - 第 0 档 AI 设计：选择具名 struct + `std::variant` 作为唯一分析 IR；`device_names` 与 `devices` 一一对应；`.dc` 前向引用在解析结束后绑定到 `IndependentSource`；每点仅克隆被扫源并替换非拥有视图；整数步号生成扫描序列；双源为 source2 外层。
@@ -169,6 +169,9 @@ AI 设计/实现范围：
 - 第 4 档复核测试：修改 `tests/test_parser.cpp`，加入显式 `.dc v1 0 1p 0.1p` 和 `1e12` 大偏置小区间的 11 点严格递增回归；修改 `tests/test_simulate.cpp`，加入 null/重名/未规范化身份及手工双轴同名拒绝。该问题在第 4 档提交前被捕获和修复，未进入已推送的最终实现提交。
 - 第 4 档验证：parser 45/45，controller 17/17，writer 11/11，CLI 函数级 11/11，DC 真实进程/examples 4/4，先构建再全仓 182/182；三份 DC examples 手工实跑；单源 CSV 通过 Python 标准库和 MATLAB R2026a `readtable` 实机回读断言。
 - 第 4 档提交：`ae05de8 feat: add dc sweep output and examples`；本行由随后纯文档提交回填。
+- 任务会话收口：`8280d40 docs: finalize M09 dc sweep receipt`，`HEAD == main == origin/main` 且工作区干净。
+- 主会话独立验收：重新构建成功；M09 定向 23/23、全仓 182/182；三份 DC examples 手工实跑并核对点数、嵌套顺序和数值；`git diff --check fb6bba8..8280d40` 通过，未发现新的阻塞问题。
+- 主会话结论：`TS-M09-DC` 正式销项；当前活动任务置空，未创建或启动 M10。
 
 ## 六、已确认的后续工具路线
 
