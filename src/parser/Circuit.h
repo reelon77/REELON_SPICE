@@ -47,3 +47,8 @@ struct Circuit {
 };
 
 Circuit parse_circuit(std::istream& input);
+
+std::vector<double> generate_dc_sweep_values(
+    double start,
+    double stop,
+    double step);

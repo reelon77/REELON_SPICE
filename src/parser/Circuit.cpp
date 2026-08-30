@@ -1,6 +1,7 @@
 #include "Circuit.h"
 #include "devices/VoltageSource.h"
 #include "devices/CurrentSource.h"
+#include "devices/IndependentSource.h"
 #include "devices/Capacitor.h"
 #include "devices/Inductor.h"
 #include "devices/Diode.h"
@@ -8,7 +9,10 @@
 #include "numeric.h"
 #include "devices/Resistor.h"
 
+#include <algorithm>
+#include <cmath>
 #include <exception>
+#include <limits>
 #include <memory>
 #include <istream>
 #include <sstream>
@@ -17,6 +21,61 @@
 #include <unordered_map>
 #include <utility>
 #include <variant>
+
+std::vector<double> generate_dc_sweep_values(
+    double start,
+    double stop,
+    double step) {
+    if (!std::isfinite(start)
+        || !std::isfinite(stop)
+        || !std::isfinite(step)) {
+        throw std::invalid_argument("DC sweep values must be finite");
+    }
+    if (step == 0.0) {
+        throw std::invalid_argument("DC sweep step cannot be zero");
+    }
+    if ((start < stop && step < 0.0)
+        || (start > stop && step > 0.0)) {
+        throw std::invalid_argument(
+            "DC sweep step points away from stop");
+    }
+    if (start == stop) {
+        return {start};
+    }
+
+    const bool ascending = step > 0.0;
+    std::vector<double> values;
+    for (std::size_t index = 0; ; ++index) {
+        const double value =
+            start + static_cast<double>(index) * step;
+        if (!std::isfinite(value)) {
+            throw std::overflow_error("DC sweep value overflowed");
+        }
+        const double tolerance = 1e-12 * std::max({
+            1.0,
+            std::abs(start),
+            std::abs(stop),
+            std::abs(value),
+        });
+        const bool past_stop = ascending
+            ? value > stop + tolerance
+            : value < stop - tolerance;
+        if (past_stop) {
+            break;
+        }
+        values.push_back(
+            std::abs(value - stop) <= tolerance ? stop : value);
+        if (index == std::numeric_limits<std::size_t>::max()) {
+            throw std::overflow_error("DC sweep has too many points");
+        }
+        const double next =
+            start + static_cast<double>(index + 1) * step;
+        if (next == value) {
+            throw std::overflow_error("DC sweep step cannot advance value");
+        }
+    }
+    return values;
+}
 
 Circuit parse_circuit(std::istream& input) {
     Circuit circuit;
@@ -92,6 +151,20 @@ Circuit parse_circuit(std::istream& input) {
         analysis_directive = directive;
     };
 
+    auto validate_dc_axis = [&line_number](const DcSweepAxis& axis) {
+        try {
+            (void)generate_dc_sweep_values(
+                axis.start,
+                axis.stop,
+                axis.step);
+        } catch (const std::exception& error) {
+            std::stringstream message;
+            message << line_number << ": .dc " << axis.source_name
+                    << ": " << error.what();
+            throw std::runtime_error(message.str());
+        }
+    };
+
     while (std::getline(input, line)) {
         ++line_number;
         auto tokens = tokenize(line);
@@ -117,6 +190,51 @@ Circuit parse_circuit(std::istream& input) {
                 throw std::runtime_error(e.str());
             }
             break;
+        }
+
+        if (tokens[0] == ".dc") {
+            if (tokens.size() != 5 && tokens.size() != 9) {
+                std::stringstream error;
+                error << line_number
+                      << ": .dc requires 5 or 9 tokens";
+                throw std::runtime_error(error.str());
+            }
+            constexpr std::size_t unresolved_index =
+                std::numeric_limits<std::size_t>::max();
+            DcSweepAxis primary{
+                tokens[1],
+                unresolved_index,
+                parse_value(tokens[2]),
+                parse_value(tokens[3]),
+                parse_value(tokens[4]),
+            };
+            validate_dc_axis(primary);
+
+            std::optional<DcSweepAxis> secondary;
+            if (tokens.size() == 9) {
+                secondary = DcSweepAxis{
+                    tokens[5],
+                    unresolved_index,
+                    parse_value(tokens[6]),
+                    parse_value(tokens[7]),
+                    parse_value(tokens[8]),
+                };
+                validate_dc_axis(*secondary);
+                if (primary.source_name == secondary->source_name) {
+                    std::stringstream error;
+                    error << line_number
+                          << ": .dc sources must be different: "
+                          << primary.source_name;
+                    throw std::runtime_error(error.str());
+                }
+            }
+            set_analysis(
+                tokens[0],
+                DcSweepAnalysis{
+                    std::move(primary),
+                    std::move(secondary),
+                });
+            continue;
         }
 
         if (tokens[0][0] == 'r') {
@@ -256,5 +374,36 @@ Circuit parse_circuit(std::istream& input) {
         throw std::runtime_error(e.str());
     }
     circuit.nodes = next_node;
+
+    if (auto* dc = std::get_if<DcSweepAnalysis>(&circuit.analysis)) {
+        auto resolve_source = [
+            &circuit,
+            analysis_line](DcSweepAxis& axis) {
+            const auto found = std::find(
+                circuit.device_names.begin(),
+                circuit.device_names.end(),
+                axis.source_name);
+            if (found == circuit.device_names.end()) {
+                std::stringstream error;
+                error << analysis_line << ": .dc source "
+                      << axis.source_name << " does not exist";
+                throw std::runtime_error(error.str());
+            }
+            axis.device_index = static_cast<std::size_t>(
+                std::distance(circuit.device_names.begin(), found));
+            if (dynamic_cast<IndependentSource*>(
+                    circuit.devices[axis.device_index].get()) == nullptr) {
+                std::stringstream error;
+                error << analysis_line << ": .dc source "
+                      << axis.source_name
+                      << " is not an independent voltage or current source";
+                throw std::runtime_error(error.str());
+            }
+        };
+        resolve_source(dc->primary);
+        if (dc->secondary) {
+            resolve_source(*dc->secondary);
+        }
+    }
     return circuit;
 }

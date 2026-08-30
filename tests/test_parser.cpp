@@ -20,6 +20,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -306,8 +307,8 @@ TEST(CircuitDeviceParsingTest, RejectsUnknownDeviceAndReportsLineAndToken) {
 
 TEST(CircuitDeviceParsingTest, RejectsUnsupportedDirectiveAndReportsLineAndToken) {
     expect_parse_error_contains(
-        ".dc V1 0 5 1\n",
-        {"1:", ".dc"});
+        ".ac lin 5 1 10\n",
+        {"1:", ".ac"});
 }
 
 TEST(CircuitDeviceParsingTest, RejectsWrongTokenCountForEveryDeviceKind) {
@@ -427,6 +428,112 @@ TEST(CircuitTransientParsingTest, RejectsNonPositiveTranParametersWithLineNumber
     for (const std::string& line : malformed_lines) {
         SCOPED_TRACE(line);
         expect_parse_error_contains(line, {"1:"}, {"undefined token"});
+    }
+}
+
+// ---------- M09 第 2 档:.dc parser、前向引用与序列 ----------
+
+TEST(DcSweepSequenceTest, GeneratesAscendingDescendingAndNonDivisibleRanges) {
+    EXPECT_EQ(
+        generate_dc_sweep_values(0.0, 2.0, 1.0),
+        (std::vector<double>{0.0, 1.0, 2.0}));
+    EXPECT_EQ(
+        generate_dc_sweep_values(2.0, 0.0, -1.0),
+        (std::vector<double>{2.0, 1.0, 0.0}));
+    EXPECT_EQ(
+        generate_dc_sweep_values(0.0, 1.0, 0.4),
+        (std::vector<double>{0.0, 0.4, 0.8}));
+    EXPECT_EQ(
+        generate_dc_sweep_values(1.0, 1.0, -3.0),
+        (std::vector<double>{1.0}));
+}
+
+TEST(DcSweepSequenceTest, RejectsZeroWrongDirectionAndNonFiniteValues) {
+    EXPECT_THROW(
+        generate_dc_sweep_values(0.0, 1.0, 0.0),
+        std::invalid_argument);
+    EXPECT_THROW(
+        generate_dc_sweep_values(0.0, 1.0, -0.1),
+        std::invalid_argument);
+    EXPECT_THROW(
+        generate_dc_sweep_values(1.0, 0.0, 0.1),
+        std::invalid_argument);
+    EXPECT_THROW(
+        generate_dc_sweep_values(NAN, 1.0, 0.1),
+        std::invalid_argument);
+}
+
+TEST(CircuitDcParsingTest, ResolvesForwardReferencedSingleVoltageSource) {
+    std::istringstream input(
+        ".DC VDRIVE 0 2 1\n"
+        "R1 in 0 1k\n"
+        "vDrive in 0 0\n"
+        ".end\n");
+
+    Circuit circuit = parse_circuit(input);
+
+    ASSERT_TRUE(std::holds_alternative<DcSweepAnalysis>(circuit.analysis));
+    const auto& dc = std::get<DcSweepAnalysis>(circuit.analysis);
+    EXPECT_EQ(dc.primary.source_name, "vdrive");
+    EXPECT_EQ(dc.primary.device_index, 1u);
+    EXPECT_DOUBLE_EQ(dc.primary.start, 0.0);
+    EXPECT_DOUBLE_EQ(dc.primary.stop, 2.0);
+    EXPECT_DOUBLE_EQ(dc.primary.step, 1.0);
+    EXPECT_FALSE(dc.secondary.has_value());
+}
+
+TEST(CircuitDcParsingTest, ResolvesVoltageAndCurrentSourcesInStableAxisOrder) {
+    std::istringstream input(
+        "I2 b 0 0\n"
+        ".dc V1 0 1 1 I2 2 0 -2\n"
+        "V1 a 0 0\n"
+        ".end\n");
+
+    Circuit circuit = parse_circuit(input);
+
+    const auto& dc = std::get<DcSweepAnalysis>(circuit.analysis);
+    EXPECT_EQ(dc.primary.source_name, "v1");
+    EXPECT_EQ(dc.primary.device_index, 1u);
+    ASSERT_TRUE(dc.secondary.has_value());
+    EXPECT_EQ(dc.secondary->source_name, "i2");
+    EXPECT_EQ(dc.secondary->device_index, 0u);
+    EXPECT_EQ(
+        generate_dc_sweep_values(
+            dc.secondary->start,
+            dc.secondary->stop,
+            dc.secondary->step),
+        (std::vector<double>{2.0, 0.0}));
+}
+
+TEST(CircuitDcParsingTest, RejectsMalformedValuesDirectionsAndTargetsWithLine) {
+    const std::vector<std::pair<std::string, std::vector<std::string>>> cases{
+        {".dc v1 0 1\n", {"1:", ".dc", "5 or 9"}},
+        {".dc v1 bad 1 1\n", {"1:", "bad"}},
+        {".dc v1 0 1 0\nv1 1 0 0\n", {"1:", "v1", "zero"}},
+        {".dc v1 0 1 -1\nv1 1 0 0\n", {"1:", "v1", "away"}},
+        {".dc v1 nan 1 1\nv1 1 0 0\n", {"1:", "v1", "finite"}},
+        {".dc missing 0 1 1\nv1 1 0 0\n", {"1:", "missing", "does not exist"}},
+        {".dc r1 0 1 1\nr1 1 0 1k\n", {"1:", "r1", "not an independent"}},
+        {".dc v1 0 1 1 V1 0 1 1\nv1 1 0 0\n", {"1:", "different", "v1"}},
+    };
+
+    for (const auto& [netlist, fragments] : cases) {
+        SCOPED_TRACE(netlist);
+        expect_parse_error_contains(netlist, fragments);
+    }
+}
+
+TEST(CircuitDcParsingTest, ConflictsWithEveryOtherAnalysisDirective) {
+    const std::vector<std::string> netlists{
+        "v1 1 0 0\n.dc v1 0 1 1\n.op\n",
+        "v1 1 0 0\n.op\n.dc v1 0 1 1\n",
+        "v1 1 0 0\n.tran 1m 2m\n.dc v1 0 1 1\n",
+        "v1 1 0 0\n.dc v1 0 1 1\n.dc v1 0 1 1\n",
+    };
+
+    for (const std::string& netlist : netlists) {
+        SCOPED_TRACE(netlist);
+        expect_parse_error_contains(netlist, {"analysis", "conflicts"});
     }
 }
 
