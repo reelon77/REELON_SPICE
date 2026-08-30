@@ -2,7 +2,7 @@
 
 > 建立日期：2026-08-30
 > 起算基线：`4d11881 docs: add M08 implementation handoff inventory`
-> 状态：启用；`TS-M09-DC` 已正式验收销项，当前无活动任务，M10 尚未下发
+> 状态：启用；项目已按用户要求暂停，当前无活动任务，M10 尚未下发
 
 ## 一、用途
 
@@ -188,6 +188,20 @@ AI 设计/实现范围：
 - 实机验证：本机自动发现 `/Users/reelon/Applications/MATLAB/MATLAB_R2026a.app`，真实 RC 仿真经单条 CLI 命令成功生成 CSV 和 1274×820 PNG，目视确认三条波形、坐标和图例正确；用不存在的 MATLAB 路径验证退出码 1、CSV 保留且无图片。
 - 自动测试：CLI 定向 20/20、全仓 187/187；`git diff --check` 通过。
 - 提交：`d94c808 feat: automate MATLAB transient plotting`；本行由随后纯文档提交回填。
+
+### `AI-0006`：项目暂停与跨项目交接收口
+
+> 日期：2026-08-30
+> Task ID：`TS-PROJECT-PAUSE`
+> 类型：只读复验、状态冻结与文档交接
+
+- 用户决定暂时截止 TinySpice 独立开发，要求确认 Go 联动形态、登记 MATLAB 系统路径并形成可恢复/可跨项目阅读的状态文档。
+- AI 核对 CMake：当前为 `SpiceLib STATIC`、`TinySpiceCli STATIC` 和 `TinySpice` executable，不存在 DLL、`.dylib`、`.so` 或稳定 C ABI；Go 第一版应使用 CLI 子进程。
+- AI 新建 `会话交接/项目暂停交接_2026-08-30.md`，集中记录功能、架构、命令、验证、归属、限制、M10～M17、Go 联动方式、恢复清单和跨项目开场提示词。
+- AI 更新本台账和 `项目梳理与开发计划.md`，将项目标为暂停、当前活动任务保持为空；未创建或启动 M10。
+- 本地环境登记：MATLAB R2026a `bin` 已加入 `~/.zprofile` 与 `~/.zshrc`；登录和非登录交互 zsh 均能直接解析 `matlab`，batch 版本调用返回 R2026a Update 5。用户目录 shell 配置不属于 Git 仓库提交。
+- 明确未修改：全部生产代码、测试、CMake、README、MATLAB/Python 脚本和 187 项既有测试。
+- 验证：重新构建成功，全仓 187/187，`git diff --check` 通过；暂停交接提交待本档提交后回填。
 
 ## 六、已确认的后续工具路线
 
