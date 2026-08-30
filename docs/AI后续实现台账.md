@@ -186,7 +186,8 @@ AI 设计/实现范围：
 - AI 文档：修改 `README.md`，记录自动运行方式、查找顺序、错误语义和分布式 Worker 边界。
 - 明确未修改：全部 `src/`、`scripts/plot_transient.m`、Python 工具、求解器、器件和结果 writer。
 - 实机验证：本机自动发现 `/Users/reelon/Applications/MATLAB/MATLAB_R2026a.app`，真实 RC 仿真经单条 CLI 命令成功生成 CSV 和 1274×820 PNG，目视确认三条波形、坐标和图例正确；用不存在的 MATLAB 路径验证退出码 1、CSV 保留且无图片。
-- 自动测试：CLI 定向 20/20、全仓 187/187；`git diff --check` 通过。提交 hash 待阶段提交后由纯文档提交回填。
+- 自动测试：CLI 定向 20/20、全仓 187/187；`git diff --check` 通过。
+- 提交：`d94c808 feat: automate MATLAB transient plotting`；本行由随后纯文档提交回填。
 
 ## 六、已确认的后续工具路线
 
