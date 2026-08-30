@@ -156,8 +156,12 @@ void write_simulation_result(
             using ResultType = std::decay_t<decltype(typed_result)>;
             if constexpr (std::is_same_v<ResultType, OperatingPointResult>) {
                 write_operating_point(out, circuit, typed_result);
-            } else {
+            } else if constexpr (
+                std::is_same_v<ResultType, TransientAnalysisResult>) {
                 write_transient_csv(out, circuit, typed_result);
+            } else {
+                throw std::invalid_argument(
+                    "DC sweep result writer is not implemented");
             }
         },
         result);

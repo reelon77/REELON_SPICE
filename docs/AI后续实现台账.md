@@ -141,7 +141,7 @@ AI 设计/实现范围：
 
 > 日期：2026-08-30
 > Task ID：`TS-M09-DC`
-> 状态：第 0～2 档已完成；第 3～4 档待执行
+> 状态：第 0～3 档已完成；第 4 档待执行
 
 - 目标与范围：在不修改 `const Circuit` 内器件的前提下，完成类型化 `.op/.tran/.dc` 请求、全局唯一器件身份、独立 V/I 源局部克隆覆盖、单/双源扫描、结构化结果及 CSV/CLI。
 - 第 0 档 AI 设计：选择具名 struct + `std::variant` 作为唯一分析 IR；`device_names` 与 `devices` 一一对应；`.dc` 前向引用在解析结束后绑定到 `IndependentSource`；每点仅克隆被扫源并替换非拥有视图；整数步号生成扫描序列；双源为 source2 外层。
@@ -156,7 +156,11 @@ AI 设计/实现范围：
 - 第 2 档 AI 生产代码：修改 `src/parser/Circuit.h` 公开唯一扫描序列函数；修改 `src/parser/Circuit.cpp::generate_dc_sweep_values/parse_circuit`，实现 5/9 token `.dc`、整数步号序列、前向引用、V/I 类型绑定及带行号错误。未修改任何器件、solver、writer 或 CLI 生产实现。
 - 第 2 档 AI 测试：修改 `tests/test_parser.cpp`，新增 6 个测试覆盖升/降/不整除/单点序列、异常序列、前向引用、双源绑定、错误分类和分析冲突。
 - 第 2 档验证：parser 44/44；先构建再全仓测试 164/164。
-- 第 2 档提交：待本档提交后在 M09 最终收口回填精确 hash。
+- 第 2 档提交：`cd02976 feat: parse dc sweep analyses`。
+- 第 3 档 AI 生产代码：修改 `src/sim/simulate.h` 新增 DC point/result 并扩展 result variant；修改 `src/sim/simulate.cpp`，新增源绑定防御、单/双层扫描、局部 clone 覆盖、延续初值、点数溢出检查和带点/源值的失败传播；`src/output/result_writer.cpp` 暂时增加 DC 穷尽分支以避免 variant 误分派，完整 writer 留第 4 档。未修改 Newton、器件 stamp、MNA、LU 或 transient。
+- 第 3 档 AI 测试：修改 `tests/test_simulate.cpp`，新增 7 个测试，使用分压/KCL/双源手算 oracle、Newton 初值 probe、二极管 KCL 残差+单点参考、重复调用和失败上下文验证契约。
+- 第 3 档验证：controller 16/16；先构建再全仓测试 171/171。
+- 第 3 档提交：待本档提交后在 M09 最终收口回填精确 hash。
 
 ## 六、已确认的后续工具路线
 
